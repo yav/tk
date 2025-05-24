@@ -1,14 +1,18 @@
-module Basics where
+module Transform (
+  Transform,
+  rotate,
+  flipX,
+  flipY,
+  inv,
+  transform
+) where
 
-type Loc    = Int
-type Len    = Int
-type Loc2D  = (Loc,Loc)
-type Len2D  = (Len,Len)
+import Vec2D
 
 data Transform = Transform {
   flipped :: Bool,
   rot     :: Int    -- mod 4
-}
+} deriving Show
 
 instance Semigroup Transform where
   x <> y = Transform {
@@ -20,7 +24,7 @@ instance Monoid Transform where
   mempty = Transform { rot = 0, flipped = False }
 
 
--- | Rottate by 90*n degrees clockwise
+-- | Rottate by 90*n degrees counter-clockwise
 rotate :: Int -> Transform
 rotate n = Transform { flipped = False, rot = n `mod` 4 }
 
@@ -53,10 +57,10 @@ toTrans2 t = if tr r then r { fY = flipped t /= fY r }
         _ -> z { tr = True, fX = True }
 
 -- | Apply a transformation
-trans :: Transform -> Len2D -> Loc2D -> Loc2D
-trans t (w,h) (x,y) = (flp a', flp b')
+transform :: Transform -> Vec2D Int {- ^ dimensions -} -> Vec2D Int -> Vec2D Int
+transform t dim pt = tt
   where
-  t2 = toTrans2 t
-  pt1@(a,b) = ((fX t2, w, x),(fY t2, h, y))
-  (a',b') = if tr t2 then (b,a) else pt1
-  flp (f,d,p) = if f then d - p - 1 else p
+  t2            = toTrans2 t
+  pt1           = flp <$> (Vec2D (fX t2) (fY t2) `vzip` dim `vzip` pt)
+  tt            = if tr t2 then swap pt1 else pt1
+  flp ((f,d),p) = if f then d - p - 1 else p

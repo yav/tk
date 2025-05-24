@@ -1,7 +1,9 @@
 module Main where
 
 import Graphics.Gloss.Interface.Pure.Game
-import Basics
+import Block
+import Transform qualified as T
+import Vec2D
 
 main :: IO ()
 main = play display bgColor fps initS drawS handleEvent updateS
@@ -16,39 +18,37 @@ bgColor = black
 fps :: Int
 fps = 60
 
-type S = Transform
+type S = Block
 
 initS :: S
-initS = Basics.rotate 1
+initS =
+  case parseBlock b of
+    Right a -> a
+    Left err -> error err
+  where
+  b = unlines
+    [ "0!2 1?."
+    , "1+. ..."
+    , "... ... 0!2"
+    ]
 
 drawS :: S -> Picture
-drawS t =
-  translate (-totW/2) (totH/2) $ 
-  pictures [ rect (x,y,c) | x <- take w [ 0 .. ], y <- take h [ 0 .. ],
-             let c' = lin red blue x (w-1), let c = lin c' green y (h-1) ]
-  where
-  (w',h') = if rot t == 1 || rot t == 3 then (h,w) else (w,h)
-  totW = fromIntegral w' * size
-  totH = fromIntegral h' * size
-  (w,h) = (5,10)
-  lin a b n m =
-    let (r1,g1,b1,a1) = rgbaOfColor a
-        (r2,g2,b2,a2) = rgbaOfColor b
-        x             = fromIntegral n / fromIntegral m
-    in makeColor (r1 + x * r2) (g1 + x * g2) (b1 + x * b2) (a1 + x * a2) 
-  size = 32
-  rect (x',y',c) =
-    let (x,y) = trans t (w,h) (x',y') in
-    color c $
-    translate (fromIntegral x * size + 1) (- (fromIntegral y * size + 1)) $
-    rectangleSolid (size - 2) (size - 2)
-
+drawS b = pictures
+  [ drawBlock b
+  , translate (-300) 200 $ scale 0.1 0.1 $ color white (text (show b)) 
+  ]
+  
 handleEvent :: Event -> S -> S
 handleEvent ev s =
   case ev of
-    EventKey (Char 'x') Up _ _ -> flipX <> s
-    EventKey (Char 'y') Up _ _ -> flipY <> s
-    EventKey (Char 'r') Up _ _ -> Basics.rotate 1 <> s
+    EventKey (Char 'x') Up _ _ -> transform T.flipX s
+    EventKey (Char 'y') Up _ _ -> transform T.flipY s
+    EventKey (Char 'e') Up _ _ -> transform (T.rotate (-1)) s
+    EventKey (Char 'q') Up _ _ -> transform (T.rotate 1) s
+    EventKey (Char 'w') Up _ _ -> moveBy (Vec2D 0 1) s
+    EventKey (Char 'a') Up _ _ -> moveBy (Vec2D (-1) 0) s
+    EventKey (Char 's') Up _ _ -> moveBy (Vec2D 0 (-1)) s
+    EventKey (Char 'd') Up _ _ -> moveBy (Vec2D 1 0) s
     _ -> s
 
 updateS :: Float -> S -> S
