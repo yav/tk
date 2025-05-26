@@ -1,7 +1,7 @@
 module Vec2D where
 
 data Vec2D a = Vec2D a a
-  deriving Show
+  deriving (Show,Eq,Ord)
 
 instance Functor Vec2D where
   fmap f (Vec2D x y) = Vec2D (f x) (f y)

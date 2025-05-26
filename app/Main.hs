@@ -1,12 +1,12 @@
 module Main where
 
 import Graphics.Gloss.Interface.Pure.Game
-import Block
+import Rule2D
 import Transform qualified as T
 import Vec2D
 
 main :: IO ()
-main = play display bgColor fps initS drawS handleEvent updateS
+main = print initS >> play display bgColor fps initS drawS handleEvent updateS
 
 display :: Display
 
@@ -27,9 +27,9 @@ initS =
     Left err -> error err
   where
   b = unlines
-    [ "0!2 1?."
-    , "1+. ..."
-    , "... ... 0!2"
+    [ "1..2 ...."
+    , ".... 1..."
+    , ".... 1... ...."
     ]
 
 drawS :: S -> Picture

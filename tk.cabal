@@ -11,12 +11,12 @@ extra-doc-files:    CHANGELOG.md
 
 common warnings
     ghc-options: -Wall
-    default-extensions: BlockArguments, ImportQualifiedPost
+    default-extensions: BlockArguments, ImportQualifiedPost, NamedFieldPuns
 
 executable tk
     import:           warnings
     main-is:          Main.hs
-    other-modules:    Transform, Block, Action, Vec2D
-    build-depends:    base ^>=4.20.0.0, vector, gloss
+    other-modules:    Piece, Transform, Rule2D, Action, Pattern, Rule, Board, Vec2D
+    build-depends:    base ^>=4.20.0.0, containers, vector, gloss
     hs-source-dirs:   app
     default-language: Haskell2010
