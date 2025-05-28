@@ -4,9 +4,24 @@ import Graphics.Gloss.Interface.Pure.Game
 import Rule2D
 import Transform qualified as T
 import Vec2D
+import GUI
+
 
 main :: IO ()
-main = print initS >> play display bgColor fps initS drawS handleEvent updateS
+main = gui App {
+  appTitle = "TK",
+  appFrameRate = 60,
+  appInit = False,
+  appUpdate = \s -> pure s,
+  appEvent = \ev _s ->
+    case ev of
+      SFEvtClosed -> pure True
+      _ -> pure False,
+  appFinished = \s -> pure s 
+}
+
+{-
+-- print initS >> play display bgColor fps initS drawS handleEvent updateS
 
 display :: Display
 
@@ -53,3 +68,4 @@ handleEvent ev s =
 
 updateS :: Float -> S -> S
 updateS _ s = s
+-}
