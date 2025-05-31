@@ -1,23 +1,23 @@
 module Main where
 
-import Graphics.Gloss.Interface.Pure.Game
 import Rule2D
 import Transform qualified as T
 import Vec2D
 import GUI
-
+import GUI.Scene
 
 main :: IO ()
 main = gui App {
   appTitle = "TK",
   appFrameRate = 60,
   appInit = False,
-  appUpdate = \s -> pure s,
+  appUpdate = \done -> if done then Nothing else Just False,
   appEvent = \ev _s ->
     case ev of
-      SFEvtClosed -> pure True
-      _ -> pure False,
-  appFinished = \s -> pure s 
+      SFEvtClosed -> True
+      _ -> False,
+  appFont = "resource/font/Modak-Regular.ttf",
+  appDraw = \_ -> Translate 100 100 $ FontColor red $ Text "Hello"
 }
 
 {-
