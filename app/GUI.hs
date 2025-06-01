@@ -6,7 +6,6 @@ module GUI (
   module Export
 ) where
 
-import Control.Monad
 import Control.Exception
 import SFML.Window qualified as SFML
 import SFML.Graphics qualified as SFML
@@ -42,7 +41,7 @@ gui app =
       SFML.setFramerateLimit w (appFrameRate app)
       fo <- SFML.err (SFML.fontFromFile (appFont app))
       let ro = RO { roWin = w, roApp = app, roFont = fo }
-      rsr <- loop ro noResources (appInit app) `finally` SFML.destroy w
+      rsr <- loop ro noResources (appInit app)
       destroyResources rsr
      `finally` SFML.destroy w
 
