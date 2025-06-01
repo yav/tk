@@ -17,7 +17,8 @@ main = gui App {
       SFEvtClosed -> True
       _ -> False,
   appFont = "resource/font/Modak-Regular.ttf",
-  appDraw = \_ -> Translate 100 100 $ FontColor red $ Text "Hello"
+  appDraw = \_ -> Translate 100 100 (FontColor red $ Text "Hello")
+              :&: Translate 50 200 (OutlineColor green (Outline 10 (Rectangle 64 128)))
 }
 
 {-

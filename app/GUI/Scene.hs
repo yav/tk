@@ -1,11 +1,8 @@
 module GUI.Scene where
 
-import SFML.Graphics.RenderWindow qualified as SFML
-import SFML.Graphics.Types qualified as SFML
-import SFML.Graphics.Color qualified as SFML
-import SFML.Graphics.Text qualified as SFML
-import SFML.Graphics.Transform qualified as SFML
-import SFML.Graphics.RenderStates qualified as SFML
+import SFML.System.Vector2 qualified as SFML
+import SFML.Graphics qualified as SFML
+import SFML.Graphics.RectangleShape qualified as R
 
 import GUI.ResourcePool
 
@@ -15,7 +12,16 @@ data Scene =
   | FontSize Int Scene
   | FontStyle SFML.TextStyle Scene
   | FontColor SFML.Color Scene
+
+  | Rectangle Float Float
+  | FillColor SFML.Color Scene
+  | OutlineColor SFML.Color Scene
+  | Outline Float Scene
+
+  | Scene :&: Scene
+
   | Translate Float Float Scene
+
 
 
 data TextProps = TextProps {
@@ -33,21 +39,49 @@ defaultTextProps fnt = TextProps {
   txtSize  = 16
 }
 
+data ShapeProps = ShapeProps {
+  fillColor :: SFML.Color,
+  outlineColor :: SFML.Color,
+  outlineThikness :: Float 
+}
+
+defaultShapeProps :: ShapeProps
+defaultShapeProps = ShapeProps {
+  fillColor = SFML.black,
+  outlineColor = SFML.white,
+  outlineThikness = 0
+}
 
 renderScene :: SFML.RenderWindow -> SFML.Font -> Scene -> Resources -> IO Resources
 renderScene w fnt scn rsr =
   do SFML.clearRenderWindow w SFML.black
-     rs <- renderLoop w (defaultTextProps fnt) SFML.idTransform rsr scn
+     rs <- renderLoop w (defaultTextProps fnt) defaultShapeProps SFML.idTransform rsr scn
      resetResources rs
 
-renderLoop :: SFML.RenderWindow -> TextProps -> SFML.Transform -> Resources -> Scene -> IO Resources
-renderLoop w txt trans rsr scn =
+setShapeProps :: SFML.SFShape a => a -> ShapeProps -> IO ()
+setShapeProps obj sh =
+  do
+    SFML.setFillColor obj (fillColor sh)
+    SFML.setOutlineColor obj (outlineColor sh)
+    SFML.setOutlineThickness obj (outlineThikness sh)
+
+
+renderLoop :: SFML.RenderWindow -> TextProps -> ShapeProps -> SFML.Transform -> Resources -> Scene -> IO Resources
+renderLoop w txt sh trans rsr scn =
   case scn of
-    Font fo k -> renderLoop w txt { txtFont = fo } trans rsr k
-    FontSize n k -> renderLoop w txt { txtSize = n } trans rsr k
-    FontStyle s k -> renderLoop w txt { txtStyle = s : txtStyle txt } trans rsr k
-    FontColor c k -> renderLoop w txt { txtColor = c } trans rsr k
-    Translate dx dy k -> renderLoop w txt (SFML.translation dx dy * trans) rsr k
+    x :&: y ->
+      do rsr1 <- renderLoop w txt sh trans rsr x
+         renderLoop w txt sh trans rsr1 y
+
+    Font fo k -> renderLoop w txt { txtFont = fo } sh trans rsr k
+    FontSize n k -> renderLoop w txt { txtSize = n } sh trans rsr k
+    FontStyle s k -> renderLoop w txt { txtStyle = s : txtStyle txt } sh trans rsr k
+    FontColor c k -> renderLoop w txt { txtColor = c } sh trans rsr k
+
+    FillColor c k -> renderLoop w txt sh { fillColor = c } trans rsr k
+    OutlineColor c k -> renderLoop w txt sh { outlineColor = c } trans rsr k
+    Outline n k -> renderLoop w txt sh { outlineThikness = n } trans rsr k
+
     Text str ->
       do (obj, rsr1) <- getResource rsr
          SFML.setTextStringU obj str
@@ -57,3 +91,14 @@ renderLoop w txt trans rsr scn =
          SFML.setTextColor obj (txtColor txt)
          SFML.drawText w obj (Just SFML.renderStates { SFML.transform = trans })
          pure rsr1
+
+    Rectangle width height ->
+      do
+        (obj, rsr1) <- getResource rsr
+        R.setSize obj (SFML.Vec2f width height)
+        setShapeProps obj sh
+        SFML.drawRectangle w obj (Just SFML.renderStates { SFML.transform = trans })
+        pure rsr1
+
+
+    Translate dx dy k -> renderLoop w txt sh (SFML.translation dx dy * trans) rsr k
