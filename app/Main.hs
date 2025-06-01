@@ -4,7 +4,6 @@ import Rule2D
 import Transform qualified as T
 import Vec2D
 import GUI
-import GUI.Scene
 
 main :: IO ()
 main = gui App {

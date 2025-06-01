@@ -3,7 +3,8 @@ module GUI (
   SFML.SFEvent(..),
   SFML.Font,
   SFML.Texture,
-  module Export
+  module Export,
+  Scene(..)
 ) where
 
 import Control.Exception
