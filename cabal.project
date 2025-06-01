@@ -1,3 +1,9 @@
 packages:
   .
-  ../SFML
+
+
+source-repository-package
+  type: git
+  location: https://github.com/SFML-haskell/SFML.git
+  tag: master
+

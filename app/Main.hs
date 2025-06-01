@@ -9,36 +9,22 @@ main :: IO ()
 main = gui App {
   appTitle = "TK",
   appFrameRate = 60,
-  appInit = False,
-  appUpdate = \done -> if done then Nothing else Just False,
-  appEvent = \ev _s ->
-    case ev of
-      SFEvtClosed -> True
-      _ -> False,
-  appFont = "resource/font/Modak-Regular.ttf",
-  appDraw = \_ -> Translate 100 100 (FontColor red $ Text "Hello")
-              :&: Translate 50 200 (OutlineColor green (Outline 10 (Rectangle 64 128)))
+  appInit = initS,
+  appUpdate = updateS,
+  appEvent = handleEvent,
+  appDraw = drawS
 }
 
-{-
--- print initS >> play display bgColor fps initS drawS handleEvent updateS
 
-display :: Display
-
-display = InWindow "TK" (800,600) (0,0)
-
-bgColor :: Color
-bgColor = black
-
-fps :: Int
-fps = 60
-
-type S = Block
+data S = S {
+  blockS :: Block,
+  done  :: Bool
+} deriving Show
 
 initS :: S
 initS =
   case parseBlock b of
-    Right a -> a
+    Right a -> S { blockS = a, done = False }
     Left err -> error err
   where
   b = unlines
@@ -47,25 +33,23 @@ initS =
     , ".... 1... ...."
     ]
 
-drawS :: S -> Picture
-drawS b = pictures
-  [ drawBlock b
-  , translate (-300) 200 $ scale 0.1 0.1 $ color white (text (show b)) 
-  ]
-  
-handleEvent :: Event -> S -> S
-handleEvent ev s =
+drawS :: S -> Scene
+drawS b = drawBlock (blockS b)
+
+handleEvent :: SFEvent -> S -> S
+handleEvent ev s@S { blockS = b } =
   case ev of
-    EventKey (Char 'x') Up _ _ -> transform T.flipX s
-    EventKey (Char 'y') Up _ _ -> transform T.flipY s
-    EventKey (Char 'e') Up _ _ -> transform (T.rotate (-1)) s
-    EventKey (Char 'q') Up _ _ -> transform (T.rotate 1) s
-    EventKey (Char 'w') Up _ _ -> moveBy (Vec2D 0 1) s
-    EventKey (Char 'a') Up _ _ -> moveBy (Vec2D (-1) 0) s
-    EventKey (Char 's') Up _ _ -> moveBy (Vec2D 0 (-1)) s
-    EventKey (Char 'd') Up _ _ -> moveBy (Vec2D 1 0) s
+    SFEvtClosed -> s { done = True }
+    SFEvtKeyReleased { code = KeyX } -> s { blockS = transform T.flipX b }
+    SFEvtKeyReleased { code = KeyY } -> s { blockS = transform T.flipY b }
+    SFEvtKeyReleased { code = KeyE } -> s { blockS = transform (T.rotate 1) b }
+    SFEvtKeyReleased { code = KeyQ } -> s { blockS = transform (T.rotate (-1)) b }
+    SFEvtKeyReleased { code = KeyW } -> s { blockS = moveBy (Vec2D 0 (-1)) b }
+    SFEvtKeyReleased { code = KeyA } -> s { blockS = moveBy (Vec2D (-1) 0) b }
+    SFEvtKeyReleased { code = KeyS } -> s { blockS = moveBy (Vec2D 0 1) b }
+    SFEvtKeyReleased { code = KeyD } -> s { blockS = moveBy (Vec2D 1 0) b }
     _ -> s
 
-updateS :: Float -> S -> S
-updateS _ s = s
--}
+
+updateS :: S -> Maybe S
+updateS s = if done s then Nothing else Just s

@@ -2,8 +2,7 @@ module Action where
 
 import Data.Maybe(fromMaybe)
 import Text.Read(readMaybe)
-import Graphics.Gloss.Data.Picture
-import Graphics.Gloss.Data.Color
+import GUI
 import Piece
 
 data Action =

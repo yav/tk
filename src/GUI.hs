@@ -7,10 +7,15 @@ module GUI (
   Scene(..)
 ) where
 
+import Data.ByteString(ByteString)
+import Data.ByteString.Unsafe qualified as BSU
+import Data.FileEmbed(embedFileRelative)
 import Control.Exception
+import Foreign.Ptr(castPtr)
 import SFML.Window qualified as SFML
 import SFML.Graphics qualified as SFML
 import SFML.Graphics.Color as Export
+import SFML.Window.Keyboard as Export (KeyCode(..))
 
 import GUI.ResourcePool
 import GUI.Scene
@@ -27,10 +32,11 @@ data App s = App {
   appInit :: s,
   appEvent :: SFML.SFEvent -> s -> s,
   appUpdate :: s -> Maybe s,
-  appDraw :: s -> Scene,
-  appFont :: FilePath
+  appDraw :: s -> Scene
 }
 
+defaultFontData :: ByteString
+defaultFontData = $(embedFileRelative "resource/font/default.ttf")
 
 
 gui :: App s -> IO ()
@@ -40,7 +46,9 @@ gui app =
     w <- SFML.createRenderWindow wmode  { SFML.windowWidth = 800, SFML.windowHeight = 600 } (appTitle app) [SFML.SFDefaultStyle] Nothing
     do
       SFML.setFramerateLimit w (appFrameRate app)
-      fo <- SFML.err (SFML.fontFromFile (appFont app))
+      fo <- -- SFML.err (SFML.fontFromFile (appFont app))
+            BSU.unsafeUseAsCStringLen defaultFontData \(ptr,len) ->
+              SFML.err (SFML.fontFromMemory (castPtr ptr) len)
       let ro = RO { roWin = w, roApp = app, roFont = fo }
       rsr <- loop ro noResources (appInit app)
       destroyResources rsr

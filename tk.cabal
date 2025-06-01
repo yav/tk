@@ -9,6 +9,10 @@ category:           Game
 build-type:         Simple
 extra-doc-files:    CHANGELOG.md
 
+data-files:
+   resource/font/default.ttf 
+   resource/font/OFL.txt
+
 common things
     ghc-options: -Wall
     default-extensions:
@@ -16,7 +20,8 @@ common things
       ImportQualifiedPost,
       NamedFieldPuns,
       LambdaCase,
-      DisambiguateRecordFields
+      DisambiguateRecordFields,
+      TemplateHaskell
     default-language: Haskell2010
 
 library
@@ -26,13 +31,13 @@ library
   other-modules:
     GUI.ResourcePool,
     GUI.Scene
-  build-depends: base, SFML
+  build-depends: base, file-embed, bytestring, SFML
 
 
 executable tk
     import:           things
     main-is:          Main.hs
     other-modules:    Piece, Transform, Rule2D, Action, Pattern, Rule, Board, Vec2D
-    build-depends:    base, containers, vector, gloss, tk
+    build-depends:    base, containers, vector, tk
     hs-source-dirs:   app
 

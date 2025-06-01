@@ -19,8 +19,14 @@ data Scene =
   | Outline Float Scene
 
   | Scene :&: Scene
+  | Blank
 
   | Translate Float Float Scene
+  | Scale Float Float Scene
+  | ScaleWithCenter Float Float Float Float Scene
+  | Rotate Float Scene            -- in degree
+  | RotateWithCenter Float Float Float Scene -- degree, x, y
+
 
 
 
@@ -69,6 +75,7 @@ setShapeProps obj sh =
 renderLoop :: SFML.RenderWindow -> TextProps -> ShapeProps -> SFML.Transform -> Resources -> Scene -> IO Resources
 renderLoop w txt sh trans rsr scn =
   case scn of
+    Blank -> pure rsr
     x :&: y ->
       do rsr1 <- renderLoop w txt sh trans rsr x
          renderLoop w txt sh trans rsr1 y
@@ -100,5 +107,8 @@ renderLoop w txt sh trans rsr scn =
         SFML.drawRectangle w obj (Just SFML.renderStates { SFML.transform = trans })
         pure rsr1
 
-
     Translate dx dy k -> renderLoop w txt sh (SFML.translation dx dy * trans) rsr k
+    Scale sx sy k     -> renderLoop w txt sh (SFML.scaling sx sy * trans) rsr k
+    ScaleWithCenter sx sy x y k -> renderLoop w txt sh (SFML.scalingWithCenter sx sy x y * trans) rsr k
+    Rotate r k -> renderLoop w txt sh (SFML.rotation r * trans) rsr k
+    RotateWithCenter r x y k -> renderLoop w txt sh (SFML.rotationWithCenter r x y * trans) rsr k

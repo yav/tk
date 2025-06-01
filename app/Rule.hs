@@ -1,8 +1,6 @@
 module Rule where
 
-import Data.Maybe(fromMaybe)
-import Graphics.Gloss.Data.Picture qualified as P
-import Graphics.Gloss.Data.Color   qualified as P
+import GUI
 import Pattern
 import Action
 
@@ -15,12 +13,9 @@ isTrivial :: Rule -> Bool
 isTrivial Rule { rulePattern, ruleAction } =
   isAnyPiece rulePattern && ruleAction == Leave 
 
-drawRule :: Float -> Rule -> P.Picture
+drawRule :: Float -> Rule -> Scene
 drawRule sz _ =
-  P.color P.white $
-  P.pictures [
-    P.rectangleWire sz sz
-  ]
+  OutlineColor white $ Outline 1 $ Rectangle sz sz
 
 parseRule :: String -> Maybe Rule
 parseRule s =

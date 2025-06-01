@@ -9,7 +9,7 @@ module Rule2D (
 ) where
 
 import Control.Monad(zipWithM)
-import Graphics.Gloss.Data.Picture qualified as P
+import GUI
 import Vec2D
 import Transform qualified as T
 import Rule
@@ -35,10 +35,10 @@ moveBy v b = b { pos = pos b +  v }
 transform :: T.Transform -> Block -> Block
 transform t b = b { tr = t <> tr b }  
 
-drawBlock :: Block -> P.Picture
+drawBlock :: Block -> Scene
 drawBlock b =
-  P.pictures
-    [ P.translate (cvt x) (cvt y) (drawRule sz a) | (Vec2D x y,a) <- positions b ]
+    foldr (:&:) Blank
+    [ Translate (cvt x) (cvt y) (drawRule sz a) | (Vec2D x y,a) <- positions b ]
   where
   sz = 32
   cvt x = sz * fromIntegral x  
