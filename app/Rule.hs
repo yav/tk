@@ -1,6 +1,7 @@
 module Rule where
 
-import GUI
+import GUI.Scene
+import GUI.Color
 import Pattern
 import Action
 

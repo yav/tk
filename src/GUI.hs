@@ -1,10 +1,5 @@
 module GUI (
-  gui, App(..),
-  SFML.SFEvent(..),
-  SFML.Font,
-  SFML.Texture,
-  module Export,
-  Scene(..)
+  gui, App(..)
 ) where
 
 import Data.ByteString(ByteString)
@@ -14,11 +9,10 @@ import Control.Exception
 import Foreign.Ptr(castPtr)
 import SFML.Window qualified as SFML
 import SFML.Graphics qualified as SFML
-import SFML.Graphics.Color as Export
-import SFML.Window.Keyboard as Export (KeyCode(..))
 
 import GUI.ResourcePool
 import GUI.Scene
+import GUI.Render
 
 data RO s = RO {
   roApp  :: App s,
