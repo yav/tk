@@ -5,6 +5,7 @@ import SFML.Graphics qualified as SFML
 
 import GUI.ResourcePool
 import GUI.Scene
+import GUI.Texture
 
 data TextProps = TextProps {
   txtColor :: SFML.Color,
@@ -34,10 +35,33 @@ defaultShapeProps = ShapeProps {
   outlineThikness = 0
 }
 
+data TextureProps = TextureProps {
+  texture   :: Maybe Texture,
+  rectangle :: Maybe IntRect 
+}
+
+defaultTextureProps :: TextureProps
+defaultTextureProps = TextureProps {
+  texture = Nothing,
+  rectangle = Nothing
+}
+
+setTextureProps :: SFML.SFTexturable a => a -> TextureProps -> IO ()
+setTextureProps obj props =
+  case texture props of
+    Nothing -> pure ()
+    Just t ->
+      case rectangle props of
+        Nothing -> SFML.setTexture obj t True
+        Just r ->
+          do
+            SFML.setTextureRect obj r
+            SFML.setTexture obj t False
+
 renderScene :: SFML.RenderWindow -> SFML.Font -> Scene -> Resources -> IO Resources
 renderScene w fnt scn rsr =
   do SFML.clearRenderWindow w SFML.black
-     rs <- renderLoop w (defaultTextProps fnt) defaultShapeProps SFML.idTransform rsr scn
+     rs <- renderLoop w (defaultTextProps fnt) defaultShapeProps defaultTextureProps SFML.idTransform rsr scn
      resetResources rs
 
 setShapeProps :: SFML.SFShape a => a -> ShapeProps -> IO ()
@@ -48,22 +72,24 @@ setShapeProps obj sh =
     SFML.setOutlineThickness obj (outlineThikness sh)
 
 
-renderLoop :: SFML.RenderWindow -> TextProps -> ShapeProps -> SFML.Transform -> Resources -> Scene -> IO Resources
-renderLoop w txt sh trans rsr scn =
+renderLoop :: SFML.RenderWindow -> TextProps -> ShapeProps -> TextureProps -> SFML.Transform -> Resources -> Scene -> IO Resources
+renderLoop w txt sh tx trans rsr scn =
   case scn of
     Blank -> pure rsr
     x :&: y ->
-      do rsr1 <- renderLoop w txt sh trans rsr x
-         renderLoop w txt sh trans rsr1 y
+      do rsr1 <- renderLoop w txt sh tx trans rsr x
+         renderLoop w txt sh tx trans rsr1 y
 
-    Font fo k -> renderLoop w txt { txtFont = fo } sh trans rsr k
-    FontSize n k -> renderLoop w txt { txtSize = n } sh trans rsr k
-    FontStyle s k -> renderLoop w txt { txtStyle = s : txtStyle txt } sh trans rsr k
-    FontColor c k -> renderLoop w txt { txtColor = c } sh trans rsr k
+    Font fo k -> renderLoop w txt { txtFont = fo } sh tx trans rsr k
+    FontSize n k -> renderLoop w txt { txtSize = n } sh tx trans rsr k
+    FontStyle s k -> renderLoop w txt { txtStyle = s : txtStyle txt } sh tx trans rsr k
+    FontColor c k -> renderLoop w txt { txtColor = c } sh tx trans rsr k
 
-    FillColor c k -> renderLoop w txt sh { fillColor = c } trans rsr k
-    OutlineColor c k -> renderLoop w txt sh { outlineColor = c } trans rsr k
-    Outline n k -> renderLoop w txt sh { outlineThikness = n } trans rsr k
+    FillColor c k -> renderLoop w txt sh { fillColor = c } tx trans rsr k
+    OutlineColor c k -> renderLoop w txt sh { outlineColor = c } tx trans rsr k
+    Outline n k -> renderLoop w txt sh { outlineThikness = n } tx trans rsr k
+
+    Texture t r k -> renderLoop w txt sh tx { texture = Just t, rectangle = r } trans rsr k 
 
     Text str ->
       do (obj, rsr1) <- getResource rsr
@@ -80,6 +106,7 @@ renderLoop w txt sh trans rsr scn =
         (obj, rsr1) <- getResource rsr
         SFML.setSize obj (SFML.Vec2f width height)
         setShapeProps obj sh
+        setTextureProps obj tx
         SFML.drawRectangle w obj (Just SFML.renderStates { SFML.transform = trans })
         pure rsr1
 
@@ -88,11 +115,22 @@ renderLoop w txt sh trans rsr scn =
         (obj, rsr1) <- getResource rsr
         SFML.setRadius obj radius
         setShapeProps obj sh
+        setTextureProps obj tx
         SFML.drawCircle w obj (Just SFML.renderStates { SFML.transform = trans })
         pure rsr1
 
-    Translate dx dy k -> renderLoop w txt sh (SFML.translation dx dy * trans) rsr k
-    Scale sx sy k     -> renderLoop w txt sh (SFML.scaling sx sy * trans) rsr k
-    ScaleWithCenter sx sy x y k -> renderLoop w txt sh (SFML.scalingWithCenter sx sy x y * trans) rsr k
-    Rotate r k -> renderLoop w txt sh (SFML.rotation r * trans) rsr k
-    RotateWithCenter r x y k -> renderLoop w txt sh (SFML.rotationWithCenter r x y * trans) rsr k
+    Sprite ->
+      case texture tx of
+        Nothing -> pure rsr
+        Just {} ->
+          do
+            (obj, rsr1) <- getResource rsr
+            setTextureProps obj tx
+            SFML.drawSprite w obj (Just SFML.renderStates { SFML.transform = trans })
+            pure rsr1
+
+    Translate dx dy k -> renderLoop w txt sh tx (SFML.translation dx dy * trans) rsr k
+    Scale sx sy k     -> renderLoop w txt sh tx (SFML.scaling sx sy * trans) rsr k
+    ScaleWithCenter sx sy x y k -> renderLoop w txt sh tx (SFML.scalingWithCenter sx sy x y * trans) rsr k
+    Rotate r k -> renderLoop w txt sh tx (SFML.rotation r * trans) rsr k
+    RotateWithCenter r x y k -> renderLoop w txt sh tx (SFML.rotationWithCenter r x y * trans) rsr k

@@ -2,6 +2,7 @@ module GUI.Scene where
 
 import GUI.Color
 import GUI.Text
+import GUI.Texture
 
 data Scene =
     Text String
@@ -12,9 +13,13 @@ data Scene =
 
   | Rectangle Float Float
   | Circle Float
+  | Sprite
+
   | FillColor Color Scene
   | OutlineColor Color Scene
   | Outline Float Scene
+
+  | Texture Texture (Maybe IntRect) Scene
 
   | Scene :&: Scene
   | Blank
