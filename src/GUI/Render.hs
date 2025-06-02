@@ -83,6 +83,14 @@ renderLoop w txt sh trans rsr scn =
         SFML.drawRectangle w obj (Just SFML.renderStates { SFML.transform = trans })
         pure rsr1
 
+    Circle radius ->
+      do
+        (obj, rsr1) <- getResource rsr
+        SFML.setRadius obj radius
+        setShapeProps obj sh
+        SFML.drawCircle w obj (Just SFML.renderStates { SFML.transform = trans })
+        pure rsr1
+
     Translate dx dy k -> renderLoop w txt sh (SFML.translation dx dy * trans) rsr k
     Scale sx sy k     -> renderLoop w txt sh (SFML.scaling sx sy * trans) rsr k
     ScaleWithCenter sx sy x y k -> renderLoop w txt sh (SFML.scalingWithCenter sx sy x y * trans) rsr k

@@ -1,8 +1,6 @@
 module Action where
 
-import Data.Maybe(fromMaybe)
 import Text.Read(readMaybe)
-import GUI
 import Piece
 
 data Action =

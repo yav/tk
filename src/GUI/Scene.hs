@@ -11,6 +11,7 @@ data Scene =
   | FontColor Color Scene
 
   | Rectangle Float Float
+  | Circle Float
   | FillColor Color Scene
   | OutlineColor Color Scene
   | Outline Float Scene
