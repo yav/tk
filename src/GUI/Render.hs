@@ -126,6 +126,7 @@ renderLoop w txt sh tx trans rsr scn =
           do
             (obj, rsr1) <- getResource rsr
             setTextureProps obj tx
+            SFML.setColor obj (fillColor sh)
             SFML.drawSprite w obj (Just SFML.renderStates { SFML.transform = trans })
             pure rsr1
 
