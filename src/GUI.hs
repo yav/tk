@@ -9,6 +9,8 @@ import Control.Exception
 import Foreign.Ptr(castPtr)
 import SFML.Window qualified as SFML
 import SFML.Graphics qualified as SFML
+import SFML.SFResource qualified as SFML
+
 
 import GUI.ResourcePool
 import GUI.Scene
@@ -17,7 +19,8 @@ import GUI.Render
 data RO s = RO {
   roApp  :: App s,
   roWin  :: SFML.RenderWindow,
-  roFont :: SFML.Font 
+  roFont :: SFML.Font,
+  roClock :: SFML.Clock
 }
 
 data App s = App {
@@ -25,7 +28,7 @@ data App s = App {
   appFrameRate :: Int,
   appInit :: s,
   appEvent :: SFML.SFEvent -> s -> s,
-  appUpdate :: s -> Maybe s,
+  appUpdate :: Int -> s -> Maybe s,
   appDraw :: s -> Scene
 }
 
@@ -35,19 +38,21 @@ defaultFontData = $(embedFileRelative "resource/font/default.ttf")
 
 gui :: App s -> IO ()
 gui app =
-  do
-    wmode <- SFML.getDesktopMode 
-    w <- SFML.createRenderWindow wmode  { SFML.windowWidth = 800, SFML.windowHeight = 600 } (appTitle app) [SFML.SFDefaultStyle] Nothing
+  SFML.getDesktopMode >>= \wmode ->
+  withResource (SFML.createRenderWindow wmode  { SFML.windowWidth = 800, SFML.windowHeight = 600 } (appTitle app) [SFML.SFDefaultStyle] Nothing) \w ->
+  withResource SFML.createClock \clock ->
     do
       SFML.setFramerateLimit w (appFrameRate app)
-      fo <- -- SFML.err (SFML.fontFromFile (appFont app))
-            BSU.unsafeUseAsCStringLen defaultFontData \(ptr,len) ->
+      fo <- BSU.unsafeUseAsCStringLen defaultFontData \(ptr,len) ->
               SFML.err (SFML.fontFromMemory (castPtr ptr) len)
-      let ro = RO { roWin = w, roApp = app, roFont = fo }
-      rsr <- loop ro noResources (appInit app)
-      destroyResources rsr
-     `finally` SFML.destroy w
-
+      let ro = RO { roWin = w, roApp = app, roFont = fo, roClock = clock }
+      t0 <- SFML.getElapsedTime clock
+      destroyResources =<< loop t0 ro noResources (appInit app)
+  
+withResource :: SFML.SFResource r => IO r -> (r -> IO ()) -> IO ()
+withResource mk k =
+  do r <- mk
+     k r `finally` SFML.destroy r
 
 
 getEvents :: RO s -> s -> IO s
@@ -60,16 +65,18 @@ getEvents ro s =
         getEvents ro $! appEvent (roApp ro) ev s
 
 
-loop :: RO s -> Resources -> s -> IO Resources
-loop ro rs us =
+loop :: SFML.Time -> RO s -> Resources -> s -> IO Resources
+loop prev ro rs us =
   do
     us1 <- getEvents ro us
     let app = roApp ro
-    case appUpdate app us1 of
+    t <- SFML.getElapsedTime (roClock ro)
+    let delta = t - prev
+    case appUpdate app (SFML.asMilliseconds delta) us1 of
       Nothing -> pure rs
       Just s ->
         do
           let w = roWin ro
           rs1 <- renderScene w (roFont ro) (appDraw app s) rs
           SFML.display w
-          loop ro rs1 s
+          loop t ro rs1 s

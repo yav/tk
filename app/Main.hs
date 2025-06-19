@@ -20,13 +20,14 @@ main = gui App {
 
 data S = S {
   blockS :: Block,
-  done  :: Bool
+  done  :: Bool,
+  delta :: Int
 } deriving Show
 
 initS :: S
 initS =
   case parseBlock b of
-    Right a -> S { blockS = a, done = False }
+    Right a -> S { blockS = a, done = False, delta = 0 }
     Left err -> error err
   where
   b = unlines
@@ -36,7 +37,7 @@ initS =
     ]
 
 drawS :: S -> Scene
-drawS b = drawBlock (blockS b)
+drawS b = Text (show (delta b)) :&: drawBlock (blockS b)
 
 handleEvent :: SFEvent -> S -> S
 handleEvent ev s@S { blockS = b } =
@@ -53,5 +54,5 @@ handleEvent ev s@S { blockS = b } =
     _ -> s
 
 
-updateS :: S -> Maybe S
-updateS s = if done s then Nothing else Just s
+updateS :: Int -> S -> Maybe S
+updateS ms s = if done s then Nothing else Just s { delta = ms }
