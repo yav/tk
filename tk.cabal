@@ -21,7 +21,9 @@ common things
       NamedFieldPuns,
       LambdaCase,
       DisambiguateRecordFields,
-      TemplateHaskell
+      TemplateHaskell,
+      GeneralizedNewtypeDeriving,
+      BangPatterns
     default-language: Haskell2010
 
 library
@@ -33,12 +35,13 @@ library
     GUI.Color,
     GUI.Scene,
     GUI.Text,
-    GUI.Texture
+    GUI.Texture,
+    GUI.Timer,
   other-modules:
     GUI.ResourcePool,
     GUI.Render
     
-  build-depends: base, file-embed, bytestring, SFML
+  build-depends: base, containers, file-embed, bytestring, SFML
 
 
 executable tk
