@@ -13,6 +13,7 @@ import SFML.SFResource qualified as SFML
 
 
 import GUI.ResourcePool
+import GUI.Timer
 import GUI.Scene
 import GUI.Render
 
@@ -47,8 +48,9 @@ gui app =
               SFML.err (SFML.fontFromMemory (castPtr ptr) len)
       let ro = RO { roWin = w, roApp = app, roFont = fo, roClock = clock }
       t0 <- SFML.getElapsedTime clock
-      destroyResources =<< loop t0 ro noResources (appInit app)
+      destroyResources =<< loop t0 ro noTimers noResources (appInit app)
   
+
 withResource :: SFML.SFResource r => IO r -> (r -> IO ()) -> IO ()
 withResource mk k =
   do r <- mk
@@ -65,8 +67,8 @@ getEvents ro s =
         getEvents ro $! appEvent (roApp ro) ev s
 
 
-loop :: SFML.Time -> RO s -> Resources -> s -> IO Resources
-loop prev ro rs us =
+loop :: SFML.Time -> RO s -> Timers a -> Resources -> s -> IO Resources
+loop prev ro ts rs us =
   do
     us1 <- getEvents ro us
     let app = roApp ro
@@ -79,4 +81,5 @@ loop prev ro rs us =
           let w = roWin ro
           rs1 <- renderScene w (roFont ro) (appDraw app s) rs
           SFML.display w
-          loop t ro rs1 s
+          let ts1 = ts
+          loop t ro ts1 rs1 s

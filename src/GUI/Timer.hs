@@ -1,6 +1,6 @@
 module GUI.Timer (
   Timers,
-  empty,
+  noTimers,
   timer,
   update,
   cancel,
@@ -8,54 +8,68 @@ module GUI.Timer (
   resume,
 
   Time,
-  microSeconds,
   milliSeconds,
   seconds,
 
-  Timer
 ) where
 
-import Data.Map(Map)
-import Data.Map qualified as Map
-import Data.Int
+import Data.IntMap(IntMap)
+import Data.IntMap qualified as IntMap
 import SFML.System.Time qualified as SFML
 
-newtype Time = Time SFML.Time
 
-microSeconds :: Int64 -> Time
-microSeconds = Time
+-- | Some amount of time.
+newtype Time = Time Int
+  deriving (Eq,Ord,Num,Show,Read)
 
+-- | Amount of time in milliseconds.
 milliSeconds :: Int -> Time
-milliSeconds = Time . SFML.milliseconds
+milliSeconds = Time
 
+-- | Amount of time in seconds.
 seconds :: Float -> Time
-seconds = Time . SFML.seconds
+seconds = Time . SFML.asMilliseconds . SFML.seconds
 
+-- | A collection of timers.
+data Timers a = Timers {
+  timers    :: !(TimerQ a),
+  paused    :: !Time
+}
 
-data Timers = Timers {
-  nextTimer :: !Int,
-  timers    :: !TimerQ,
-  paused    :: !SFML.Time
+type TimerQ a = IntMap [TimerD a]
+
+data TimerD a = TimerD {
+  deadline  :: !Time,
+  period    :: Maybe Time,
+  timerData :: a
 }
 
 
+-- | An empty collection of timers.
+noTimers :: Timers a
+noTimers = Timers { timers = emptyQ, paused = 0 }
 
-empty :: Timers
-empty = Timers { nextTimer = 0, timers = emptyQ, paused = 0 }
+-- | Add a new timer to the collection
+timer ::
+  Time      {- ^ The current time -} -> 
+  Bool      {- ^ Is this timer periodic? -} ->
+  Time      {- ^ Amount of time before the timer experies. -} ->
+  a         {- ^ Data associated with the timer -} ->
+  Timers a  {- ^ The timer collection to update -} ->
+  Timers a
+timer now per len dat ts = ts { timers = enQ tim (timers ts) }
+  where
+  tim = TimerD {
+    deadline  = now + len,
+    period    = if per then Just len else Nothing,
+    timerData = dat
+  }
 
-timer :: SFML.Time -> Bool -> Time -> Timers -> (Timer, Timers)
-timer now per (Time len) ts =
-  let nam = Timer (nextTimer ts)
-      tim = TimerD {
-              name = nam,
-              deadline = now + len,
-              period = if per then Just len else Nothing
-            }
-      nex = nextTimer ts + 1
-      !ts1 = ts { nextTimer = nex, timers = enQ tim (timers ts) }
-  in (nam, ts1)
-
-update :: SFML.Time -> Timers -> ([Timer], Timers)
+-- | Update a set of timers.
+update ::
+  Time {- ^ Current time -} ->
+  Timers a {- ^ Timer collection to update -} ->
+  ([a], Timers a) {-^ Timers that expired, and updated collection -}
 update now ts
   | paused ts > 0 = ([], ts)
   | otherwise =
@@ -63,7 +77,7 @@ update now ts
       ([], _) -> ([], ts)
       (ready,q1) ->
         let q = foldr addPeriodic q1 ready
-        in (map name ready, ts { timers = q })
+        in (map timerData ready, ts { timers = q })
     where
     addPeriodic t q =
       case period t of
@@ -72,13 +86,16 @@ update now ts
           let over = now - deadline t -- assumes we don't overshoot by more than the period
           in enQ t { deadline = now + (p - over) } q
 
-cancel :: Timer -> Timers -> Timers
+-- | Cancel timers that satisfy a predicate.
+cancel :: (a -> Bool) -> Timers a -> Timers a
 cancel n t = t { timers = removeTimer n (timers t) }
 
-pause :: SFML.Time -> Timers -> Timers
+-- | Pause all timers in the colleciton.
+pause :: Time {- ^ Current time -} -> Timers a -> Timers a
 pause now ts = ts { paused = now }
 
-resume :: SFML.Time -> Timers -> Timers
+-- | Resume the timers in the collection.
+resume :: Time {- ^ Xurrent time -} -> Timers a -> Timers a
 resume now ts
   | p > 0 = ts { paused = 0, timers = adjustDeadlines (now - p) (timers ts) }
   | otherwise = ts
@@ -86,35 +103,27 @@ resume now ts
 
 -------------------------------------------------------------------------------
 
-type TimerQ = Map SFML.Time [TimerD]
 
-emptyQ :: TimerQ
+emptyQ :: TimerQ a
 emptyQ = mempty
 
-removeTimer :: Timer -> TimerQ -> TimerQ
-removeTimer n = fmap (filter ((n /=) . name))
+removeTimer :: (a -> Bool) -> TimerQ a -> TimerQ a
+removeTimer p = fmap (filter (p . timerData))
 
-getExpired :: SFML.Time -> TimerQ -> ([TimerD], TimerQ)
-getExpired now q =
-  case Map.spanAntitone ready q of
-    (as,bs) -> (concat (Map.elems as), bs)
+getExpired :: Time -> TimerQ a -> ([TimerD a], TimerQ a)
+getExpired (Time now) q =
+  case IntMap.spanAntitone ready q of
+    (as,bs) -> (concat (IntMap.elems as), bs)
   where
   ready a = a <= now
 
-enQ :: TimerD -> TimerQ -> TimerQ
-enQ t = Map.insertWith (++) (deadline t) [t]
+enQ :: TimerD a -> TimerQ a -> TimerQ a
+enQ t = IntMap.insertWith (++) ti [t]
+  where Time ti = deadline t
 
-adjustDeadlines :: SFML.Time -> TimerQ -> TimerQ
-adjustDeadlines d = Map.mapKeysMonotonic (d +)
+adjustDeadlines :: Time -> TimerQ a -> TimerQ a
+adjustDeadlines (Time d) = IntMap.mapKeysMonotonic (d +)
 
 
 -------------------------------------------------------------------------------
 
-newtype Timer = Timer Int
-  deriving (Eq,Ord,Show)
-
-data TimerD = TimerD {
-  deadline  :: !SFML.Time,
-  name      :: !Timer,
-  period    :: Maybe SFML.Time
-}
