@@ -2,10 +2,10 @@ module GUI.Timer (
   Timers,
   noTimers,
   timer,
-  update,
-  cancel,
-  pause,
-  resume,
+  updateTimers,
+  cancelTimers,
+  pauseTimers,
+  resumeTimers,
 
   Time,
   milliSeconds,
@@ -66,11 +66,11 @@ timer now per len dat ts = ts { timers = enQ tim (timers ts) }
   }
 
 -- | Update a set of timers.
-update ::
+updateTimers ::
   Time {- ^ Current time -} ->
   Timers a {- ^ Timer collection to update -} ->
   ([a], Timers a) {-^ Timers that expired, and updated collection -}
-update now ts
+updateTimers now ts
   | paused ts > 0 = ([], ts)
   | otherwise =
     case getExpired now (timers ts) of
@@ -87,16 +87,16 @@ update now ts
           in enQ t { deadline = now + (p - over) } q
 
 -- | Cancel timers that satisfy a predicate.
-cancel :: (a -> Bool) -> Timers a -> Timers a
-cancel n t = t { timers = removeTimer n (timers t) }
+cancelTimers :: (a -> Bool) -> Timers a -> Timers a
+cancelTimers n t = t { timers = removeTimer n (timers t) }
 
 -- | Pause all timers in the colleciton.
-pause :: Time {- ^ Current time -} -> Timers a -> Timers a
-pause now ts = ts { paused = now }
+pauseTimers :: Time {- ^ Current time -} -> Timers a -> Timers a
+pauseTimers now ts = ts { paused = now }
 
 -- | Resume the timers in the collection.
-resume :: Time {- ^ Xurrent time -} -> Timers a -> Timers a
-resume now ts
+resumeTimers :: Time {- ^ Xurrent time -} -> Timers a -> Timers a
+resumeTimers now ts
   | p > 0 = ts { paused = 0, timers = adjustDeadlines (now - p) (timers ts) }
   | otherwise = ts
   where p = paused ts

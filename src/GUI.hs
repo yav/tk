@@ -13,9 +13,9 @@ import SFML.SFResource qualified as SFML
 
 
 import GUI.ResourcePool
-import GUI.Timer
 import GUI.Scene
 import GUI.Render
+import GUI.Timer
 
 data RO s = RO {
   roApp  :: App s,
@@ -27,9 +27,9 @@ data RO s = RO {
 data App s = App {
   appTitle :: String,
   appFrameRate :: Int,
-  appInit :: s,
-  appEvent :: SFML.SFEvent -> s -> s,
-  appUpdate :: Int -> s -> Maybe s,
+  appInit :: Time -> s,
+  appEvent :: SFML.SFEvent -> Time -> s -> s,
+  appUpdate :: Time -> s -> Maybe s,
   appDraw :: s -> Scene
 }
 
@@ -47,8 +47,8 @@ gui app =
       fo <- BSU.unsafeUseAsCStringLen defaultFontData \(ptr,len) ->
               SFML.err (SFML.fontFromMemory (castPtr ptr) len)
       let ro = RO { roWin = w, roApp = app, roFont = fo, roClock = clock }
-      t0 <- SFML.getElapsedTime clock
-      destroyResources =<< loop t0 ro noTimers noResources (appInit app)
+      now <- milliSeconds . SFML.asMilliseconds <$> SFML.getElapsedTime clock
+      destroyResources =<< loop ro noTimers noResources (appInit app now)
   
 
 withResource :: SFML.SFResource r => IO r -> (r -> IO ()) -> IO ()
@@ -57,24 +57,23 @@ withResource mk k =
      k r `finally` SFML.destroy r
 
 
-getEvents :: RO s -> s -> IO s
-getEvents ro s =
+getEvents :: RO s -> Time -> s -> IO s
+getEvents ro t s =
   do
     mb <- SFML.pollEvent (roWin ro)
     case mb of
       Nothing -> pure s
       Just ev ->
-        getEvents ro $! appEvent (roApp ro) ev s
+        getEvents ro t $! appEvent (roApp ro) ev t s
 
 
-loop :: SFML.Time -> RO s -> Timers a -> Resources -> s -> IO Resources
-loop prev ro ts rs us =
+loop :: RO s -> Timers a -> Resources -> s -> IO Resources
+loop ro ts rs us =
   do
-    us1 <- getEvents ro us
+    t <- milliSeconds . SFML.asMilliseconds <$> SFML.getElapsedTime (roClock ro)
+    us1 <- getEvents ro t us
     let app = roApp ro
-    t <- SFML.getElapsedTime (roClock ro)
-    let delta = t - prev
-    case appUpdate app (SFML.asMilliseconds delta) us1 of
+    case appUpdate (roApp ro) t us1 of
       Nothing -> pure rs
       Just s ->
         do
@@ -82,4 +81,4 @@ loop prev ro ts rs us =
           rs1 <- renderScene w (roFont ro) (appDraw app s) rs
           SFML.display w
           let ts1 = ts
-          loop t ro ts1 rs1 s
+          loop ro ts1 rs1 s
