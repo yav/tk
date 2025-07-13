@@ -5,8 +5,7 @@ import GUI.Geometry
 
 toIntRect :: Rect Int -> SFML.IntRect 
 toIntRect r =
-  SFML.IntRect { ileft = getX l, itop = getY l, iwidth = getX d, iheight = getY d }
-  where
-  l = getRectLoc r
-  d = getRectDim r
+  withVec' (rectLoc r) \x y ->
+  withVec' (rectDim r) \w h ->
+  SFML.IntRect { ileft = x, itop = y, iwidth = w, iheight = h }
         
