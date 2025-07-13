@@ -14,21 +14,35 @@ module GUI.Geometry (
   Rect(..),
 ) where
 
+import Data.Vector.Unboxed qualified as V
+
 -- | 2D Vectors
 data family Vec scalar
 data instance Vec Int     = VecInt !Int !Int
 data instance Vec Float   = VecFloat !Float !Float
 
--- | A rectangle
-data Rect a               = Rect { rectLoc :: Vec a, rectDim :: Vec a}
-  deriving (Show,Read,Eq,Ord)
 
 -- | A line segment
-data Line a               = Line { lineStart :: Vec a, lineEnd :: Vec a }
+data Line a               = Line { lineStart :: !(Vec a), lineEnd :: !(Vec a) }
   deriving (Show,Read,Eq,Ord)
 
+-- | A rectangle
+data Rect a               = Rect { rectLoc :: !(Vec a), rectDim :: !(Vec a) }
+  deriving (Show,Read,Eq,Ord)
+
+data Poly a = Poly {
+  polyCenter    :: !(Vec a),      -- ^ In world coordinates
+  polyVertices  :: !(Vertices a)  -- ^ In local coordinates
+}
+
+-- XXX: poly constructor
+
+-- `x` is even, `y` is odd
+newtype Vertices a = Vertices (V.Vector a)
+
+
 -- | Types that may be stored in a `Vec`.
-class (Eq a, Ord a, Show a, Read a, Num a) => Scalar a where
+class (Eq a, Ord a, Show a, Read a, Num a, V.Unbox a) => Scalar a where
   -- | Create a vector
   vec  :: a -> a -> Vec a
 
@@ -55,6 +69,7 @@ instance Scalar a => Ord (Vec a) where
 -- | A version of `withVec` with swapped arguments
 withVec' :: Scalar a => Vec a -> (a -> a -> b) -> b
 withVec' = flip withVec
+{-# inline withVec' #-}
 
 -- | Update both coordinates
 updVec :: (Scalar a, Scalar b) => (a -> b) -> (a -> b) -> Vec a -> Vec b
@@ -135,3 +150,59 @@ lineIntersection
   cd = d - c
   t1 = toFloat (cross ac cd) / toFloat (cross ab cd)
   t2 = toFloat (cross ac ab) / toFloat (cross ab cd)
+
+
+type Folder a s = (Int -> a -> s -> s) -> s -> V.Vector a -> s
+
+-- | Iterate over the vertices of a polygon in world coordinates
+foldVertices ::
+  Scalar a =>
+  Folder a s ->
+  (Vec a -> s -> s) -> s -> Poly a -> s
+foldVertices fold f s0 p = fold doV s0 vs
+  where
+  Vertices vs = polyVertices p
+  doV i v s
+    | even i =
+        let !ve = polyCenter p + vec v (vs V.! (i+1))
+        in f ve s
+    | otherwise = s
+
+-- | Iterate over the diagonals of a polygon, in world coordinates.
+foldDiagonals :: Scalar a => Folder a s -> (Line a -> s -> s) -> s -> Poly a -> s
+foldDiagonals fold f s0 p = foldVertices fold doD s0 p
+  where
+  doD v = f Line { lineStart = polyCenter p, lineEnd = v }
+
+-- | Iterate over the edges of apolygon in world coordinates
+foldEdges ::
+  Scalar a =>
+  Folder a (Maybe (Vec a, Vec a, s)) ->
+  (Line a -> s -> s) -> s -> Poly a -> s
+foldEdges fold f s0 p =
+  case foldVertices fold doE Nothing p of
+    Just (v0, v, s) -> step v v0 s
+    Nothing -> s0 
+  where
+  step prev v = f Line { lineStart = prev, lineEnd = v}
+  doE v s =
+    case s of
+      Nothing -> Just (v, v, s0)
+      Just (v0, prev, st) ->
+        let !st1 = step prev v st
+        in Just (v0, v, st1) 
+
+lazy :: Scalar a => Folder a s
+lazy = V.ifoldr
+
+strict :: Scalar a => Folder a s
+strict f = V.ifoldl' (\s i a -> f i a s)
+
+polyOverlaps :: Scalar a => Poly a -> Poly a -> Bool
+polyOverlaps p1' p2' = overlaps p1' p2' || overlaps p2' p1'
+  where
+  overlaps p1 p2   = foldDiagonals lazy (checkD p2) False p1
+  checkD p2 d next = foldDiagonals lazy (checkDE d) next p2
+  checkDE d e next =
+    case lineIntersection d e of
+      (t, _) -> 0 <= t && t <= 1 || next

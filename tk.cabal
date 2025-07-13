@@ -44,7 +44,7 @@ library
     GUI.Render,
     GUI.Utils
     
-  build-depends: base, containers, file-embed, bytestring, SFML
+  build-depends: base, containers, file-embed, bytestring, SFML, vector
 
 
 executable tk
