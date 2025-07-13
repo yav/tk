@@ -2,6 +2,7 @@ module GUI.Scene where
 
 import GUI.Color
 import GUI.Text
+import GUI.Geometry
 import GUI.Texture
 
 data Scene =
@@ -19,7 +20,7 @@ data Scene =
   | OutlineColor Color Scene
   | Outline Float Scene
 
-  | Texture Texture (Maybe IntRect) Scene
+  | Texture Texture (Maybe (Rect Int)) Scene
 
   | Scene :&: Scene
   | Blank

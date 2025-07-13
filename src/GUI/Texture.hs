@@ -1,24 +1,31 @@
+-- | Textures
 module GUI.Texture (
   Texture,
   loadTexture,
-  IntRect(..),
   TextureSettings(..), defaultTextureSettings
 ) where
 
-import SFML.Graphics
+import SFML.Graphics qualified as SFML
+import GUI.Geometry
+import GUI.Utils
 
+
+-- | A texture contains image data
+type Texture = SFML.Texture
+
+-- | Load a texture from the given file.
+-- Throws an exception if the file cannot be processed.
 loadTexture :: FilePath -> TextureSettings -> IO Texture
 loadTexture f s =
   do
-    obj <- err (textureFromFile f (restrict s))
-    setSmooth obj (smooth s)
-    setRepeated obj (repeated s)
+    obj <- SFML.err (SFML.textureFromFile f (toIntRect <$> restrict s))
+    SFML.setSmooth obj (smooth s)
+    SFML.setRepeated obj (repeated s)
     pure obj
 
-
--- | How to load the texture.
+-- | How to load a texture
 data TextureSettings = TextureSettings {
-  restrict :: Maybe IntRect,
+  restrict :: Maybe (Rect Int),
   -- ^ If set, then load only the given sub-rectangle of the source
   smooth :: Bool,
   -- ^ Apply soomthing to the texture

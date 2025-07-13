@@ -1,5 +1,7 @@
+-- | Interactive applications
 module GUI (
-  gui, App(..)
+  gui,
+  App(..)
 ) where
 
 import Data.ByteString(ByteString)
@@ -16,6 +18,7 @@ import GUI.ResourcePool
 import GUI.Scene
 import GUI.Render
 import GUI.Timer
+import GUI.Event
 
 data RO s = RO {
   roApp  :: App s,
@@ -24,19 +27,32 @@ data RO s = RO {
   roClock :: SFML.Clock
 }
 
+-- | Specification for applications with state of type `s`
 data App s = App {
   appTitle :: String,
+  -- ^ Application title.
+
   appFrameRate :: Int,
+  -- ^ Maximum number of update per second.
+
   appInit :: Time -> s,
-  appEvent :: SFML.SFEvent -> Time -> s -> s,
+  -- ^ Initialize the application, given the current time.
+
+  appEvent :: SFEvent -> Time -> s -> s,
+  -- ^ Handle an external event, given the current time.
+
   appUpdate :: Time -> s -> Maybe s,
+  -- ^ Update the application, given the current time.
+  -- If this returns `Nothing`, then the application is finished.
+
   appDraw :: s -> Scene
+  -- ^ Draw the application.
 }
 
 defaultFontData :: ByteString
 defaultFontData = $(embedFileRelative "resource/font/default.ttf")
 
-
+-- | Execute an application
 gui :: App s -> IO ()
 gui app =
   SFML.getDesktopMode >>= \wmode ->

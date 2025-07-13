@@ -23,7 +23,8 @@ common things
       DisambiguateRecordFields,
       TemplateHaskell,
       GeneralizedNewtypeDeriving,
-      BangPatterns
+      BangPatterns,
+      TypeFamilies
     default-language: Haskell2010
 
 library
@@ -37,9 +38,11 @@ library
     GUI.Text,
     GUI.Texture,
     GUI.Timer,
+    GUI.Geometry
   other-modules:
     GUI.ResourcePool,
-    GUI.Render
+    GUI.Render,
+    GUI.Utils
     
   build-depends: base, containers, file-embed, bytestring, SFML
 

@@ -32,6 +32,7 @@ matches pid pat Piece { pieceLevel, pieceOwner } =
   check (pieceLevel <=) matchAtMost &&
   check checkOwner      matchOwner
   where
+  check :: (a -> Bool) -> (Pattern -> Maybe a) -> Bool
   check f g = maybe True f (g pat) 
   checkOwner o =
     case o of

@@ -6,6 +6,8 @@ import SFML.Graphics qualified as SFML
 import GUI.ResourcePool
 import GUI.Scene
 import GUI.Texture
+import GUI.Geometry
+import GUI.Utils
 
 data TextProps = TextProps {
   txtColor :: SFML.Color,
@@ -37,7 +39,7 @@ defaultShapeProps = ShapeProps {
 
 data TextureProps = TextureProps {
   texture   :: Maybe Texture,
-  rectangle :: Maybe IntRect 
+  rectangle :: Maybe (Rect Int) 
 }
 
 defaultTextureProps :: TextureProps
@@ -55,7 +57,7 @@ setTextureProps obj props =
         Nothing -> SFML.setTexture obj t True
         Just r ->
           do
-            SFML.setTextureRect obj r
+            SFML.setTextureRect obj (toIntRect r)
             SFML.setTexture obj t False
 
 renderScene :: SFML.RenderWindow -> SFML.Font -> Scene -> Resources -> IO Resources

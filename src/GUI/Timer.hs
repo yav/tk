@@ -1,3 +1,4 @@
+-- | Time and timer groups
 module GUI.Timer (
   Timers,
   noTimers,
@@ -95,7 +96,7 @@ pauseTimers :: Time {- ^ Current time -} -> Timers a -> Timers a
 pauseTimers now ts = ts { paused = now }
 
 -- | Resume the timers in the collection.
-resumeTimers :: Time {- ^ Xurrent time -} -> Timers a -> Timers a
+resumeTimers :: Time {- ^ Current time -} -> Timers a -> Timers a
 resumeTimers now ts
   | p > 0 = ts { paused = 0, timers = adjustDeadlines (now - p) (timers ts) }
   | otherwise = ts
