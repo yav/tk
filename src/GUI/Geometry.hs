@@ -6,15 +6,23 @@ module GUI.Geometry (
   withVec',
   updVec, mapVec, zipVec,
   isUnitVec, len,
-  dot, cross,
+  dot, cross, normal,
 
   -- * Shapes
   Line(..),
+  lineFromTo,
   lineIntersection,
   Rect(..),
+  Polygon,
+  listPolygon,
+  funPolygon,
+  polyVertexNum,
+  polyVertex,
+  polyEdge,
 ) where
 
 import Data.Vector.Unboxed qualified as V
+import Data.Vector.Unboxed.Mutable qualified as MV
 
 -- | 2D Vectors
 data family Vec scalar
@@ -23,22 +31,17 @@ data instance Vec Float   = VecFloat !Float !Float
 
 
 -- | A line segment
-data Line a               = Line { lineStart :: !(Vec a), lineEnd :: !(Vec a) }
-  deriving (Show,Read,Eq,Ord)
+data Line a = Line {
+  lineLoc :: !(Vec a),  --  ^ Starting point of line segment
+  lineDir :: !(Vec a)   -- ^ Length and direction of line
+} deriving (Show,Read,Eq,Ord)
 
 -- | A rectangle
 data Rect a               = Rect { rectLoc :: !(Vec a), rectDim :: !(Vec a) }
   deriving (Show,Read,Eq,Ord)
 
-data Poly a = Poly {
-  polyCenter    :: !(Vec a),      -- ^ In world coordinates
-  polyVertices  :: !(Vertices a)  -- ^ In local coordinates
-}
-
--- XXX: poly constructor
-
--- `x` is even, `y` is odd
-newtype Vertices a = Vertices (V.Vector a)
+-- | A polygon
+newtype Polygon a         = Polygon (V.Vector a)
 
 
 -- | Types that may be stored in a `Vec`.
@@ -74,34 +77,49 @@ withVec' = flip withVec
 -- | Update both coordinates
 updVec :: (Scalar a, Scalar b) => (a -> b) -> (a -> b) -> Vec a -> Vec b
 updVec f g = withVec \x y -> vec (f x) (g y)
+{-# inline updVec #-}
 
 -- | Apply a function to both coordinates of a vector
 mapVec :: (Scalar a, Scalar b) => (a -> b) -> Vec a -> Vec b
 mapVec f = updVec f f
+{-# inline mapVec #-}
 
 -- | Combine two vectors pointwise
 zipVec :: (Scalar a, Scalar b, Scalar c) => (a -> b -> c) -> Vec a -> Vec b -> Vec c
 zipVec f = withVec \x1 y1 -> withVec \x2 y2 -> vec (f x1 x2) (f y1 y2) 
+{-# inline zipVec #-}
 
 -- | The square of the vector length
 len2 :: Scalar a => Vec a -> a
 len2 = withVec \x y -> x * x + y * y
+{-# inline len2 #-}
 
 -- | Is this a unit vector?
 isUnitVec :: Scalar a => Vec a -> Bool
 isUnitVec = (1 ==) . len2
+{-# inline isUnitVec #-}
+
 
 -- | The length of a fector
 len :: Scalar a => Vec a -> Float
 len = sqrt . toFloat . len2
+{-# inline len #-}
 
 -- | Dot product
 dot :: Scalar a => Vec a -> Vec a -> a
 dot x y = withVec (+) (x * y)
+{-# inline dot #-}
 
 -- | Cross products
 cross :: Scalar a => Vec a -> Vec a -> a
-cross = withVec \x1 y1 -> withVec \x2 y2 -> x1 * y2 - y1 * x2 
+cross = withVec \x1 y1 -> withVec \x2 y2 -> x1 * y2 - y1 * x2
+{-# inline cross #-}
+
+-- | Rotate a vector 90 degrees counter-clockwise
+-- (i.e., from `x` toward `y` axis)
+normal :: Scalar a => Vec a -> Vec a
+normal = withVec \x y -> vec (-y) x
+{-# inline normal #-}
 
 
 instance Scalar a  => Num (Vec a) where
@@ -142,67 +160,60 @@ instance Scalar Float where
 -- If the lines don't intersect the result will be infinite or NaN.
 lineIntersection :: Scalar a => Line a -> Line a -> (Float,Float)
 lineIntersection
-  Line { lineStart = a, lineEnd = b}
-  Line { lineStart = c, lineEnd = d } = (t1, -t2)
+  Line { lineLoc = a, lineDir = ab }
+  Line { lineLoc = c, lineDir = cd } = (t1, -t2)
   where
   ac = c - a
-  ab = b - a
-  cd = d - c
   t1 = toFloat (cross ac cd) / toFloat (cross ab cd)
   t2 = toFloat (cross ac ab) / toFloat (cross ab cd)
+{-# specialize lineIntersection :: Line Float -> Line Float -> (Float,Float) #-}
+{-# specialize lineIntersection :: Line Int -> Line Int -> (Float,Float) #-}
+
+-- | Create a line segment between two points
+lineFromTo :: Scalar a => Vec a -> Vec a -> Line a
+lineFromTo start end = Line { lineLoc = start, lineDir = end - start }
+{-# inline lineFromTo #-}
 
 
-type Folder a s = (Int -> a -> s -> s) -> s -> V.Vector a -> s
+-- | Create a polygon out of a list of vertices.
+listPolygon :: Scalar a => [Vec a] -> Polygon a
+listPolygon xs = Polygon (V.fromList [ p | v <- xs, p <- withVec' v \x y -> [x,y] ])
+{-# inline listPolygon #-}
 
--- | Iterate over the vertices of a polygon in world coordinates
-foldVertices ::
-  Scalar a =>
-  Folder a s ->
-  (Vec a -> s -> s) -> s -> Poly a -> s
-foldVertices fold f s0 p = fold doV s0 vs
+-- | Create a polygon with the given number of vertices,
+-- using a function to compute the vertices.
+funPolygon :: Scalar a => Int -> (Int -> Vec a) -> Polygon a
+funPolygon n v = Polygon (V.create
+  do
+    vs <- MV.new n
+    let set i =
+          let j = 2 * i
+          in withVec' (v i) \x y -> MV.write vs j x >> MV.write vs (j+1) y 
+    mapM_ set (take n [0..])
+    pure vs
+  )
+{-# inline funPolygon #-}
+
+-- | How many vertices are in this polygon.
+polyVertexNum :: Scalar a => Polygon a -> Int
+polyVertexNum (Polygon vs) = V.length vs `div` 2
+{-# inline polyVertexNum #-}
+
+-- | Get a vertex of the polygon.
+-- `polyVertex i p` is valid if `0 <= i < polyVertexNum p`
+polyVertex :: Scalar a => Int -> Polygon a -> Vec a
+polyVertex i' (Polygon vs) = vec x y
   where
-  Vertices vs = polyVertices p
-  doV i v s
-    | even i =
-        let !ve = polyCenter p + vec v (vs V.! (i+1))
-        in f ve s
-    | otherwise = s
+  i = 2 * i'
+  x = vs V.! i
+  y = vs V.! (i + 1)
+{-# inline polyVertex #-}
 
--- | Iterate over the diagonals of a polygon, in world coordinates.
-foldDiagonals :: Scalar a => Folder a s -> (Line a -> s -> s) -> s -> Poly a -> s
-foldDiagonals fold f s0 p = foldVertices fold doD s0 p
+-- | Get an edge of the polygon.
+-- `polyEdge i p` is valid if `0 <= i < polyVertexNum p`
+polyEdge :: Scalar a => Int -> Polygon a -> Line a
+polyEdge i p = lineFromTo (polyVertex i p) (polyVertex j p)
   where
-  doD v = f Line { lineStart = polyCenter p, lineEnd = v }
-
--- | Iterate over the edges of apolygon in world coordinates
-foldEdges ::
-  Scalar a =>
-  Folder a (Maybe (Vec a, Vec a, s)) ->
-  (Line a -> s -> s) -> s -> Poly a -> s
-foldEdges fold f s0 p =
-  case foldVertices fold doE Nothing p of
-    Just (v0, v, s) -> step v v0 s
-    Nothing -> s0 
-  where
-  step prev v = f Line { lineStart = prev, lineEnd = v}
-  doE v s =
-    case s of
-      Nothing -> Just (v, v, s0)
-      Just (v0, prev, st) ->
-        let !st1 = step prev v st
-        in Just (v0, v, st1) 
-
-lazy :: Scalar a => Folder a s
-lazy = V.ifoldr
-
-strict :: Scalar a => Folder a s
-strict f = V.ifoldl' (\s i a -> f i a s)
-
-polyOverlaps :: Scalar a => Poly a -> Poly a -> Bool
-polyOverlaps p1' p2' = overlaps p1' p2' || overlaps p2' p1'
-  where
-  overlaps p1 p2   = foldDiagonals lazy (checkD p2) False p1
-  checkD p2 d next = foldDiagonals lazy (checkDE d) next p2
-  checkDE d e next =
-    case lineIntersection d e of
-      (t, _) -> 0 <= t && t <= 1 || next
+  j' = i + 1
+  j  = if j' == polyVertexNum p then 0 else j' 
+{-# inline polyEdge #-}
