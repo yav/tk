@@ -9,6 +9,7 @@ module Rule2D (
 ) where
 
 import Control.Monad(zipWithM)
+import Data.List(foldl')
 import GUI.Scene
 import Vec2D
 import Transform qualified as T
