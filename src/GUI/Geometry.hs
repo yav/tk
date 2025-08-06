@@ -6,7 +6,7 @@ module GUI.Geometry (
   withVec',
   updVec, mapVec, zipVec,
   isUnitVec, len,
-  dot, cross, normal,
+  dot, normal,
 
   -- * Shapes
   Line(..),
@@ -110,10 +110,7 @@ dot :: Scalar a => Vec a -> Vec a -> a
 dot x y = withVec (+) (x * y)
 {-# inline dot #-}
 
--- | Cross products
-cross :: Scalar a => Vec a -> Vec a -> a
-cross = withVec \x1 y1 -> withVec \x2 y2 -> x1 * y2 - y1 * x2
-{-# inline cross #-}
+
 
 -- | Rotate a vector 90 degrees counter-clockwise
 -- (i.e., from `x` toward `y` axis)
@@ -153,19 +150,28 @@ instance Scalar Float where
   {-# inline toFloat #-}
 
 
--- | Compute the the interesection of two ilne segmentgs.
+-- | Compute the the interesection of two line segmentgs.
 -- The results point to the intersection as an interpolant along each line:
 -- 0 is at the start of the segment, 1 is at the end.
 -- Negative or larger numbers indicate that the intersection is outside the segments.
--- If the lines don't intersect the result will be infinite or NaN.
+-- If the results are `NaN`, then the two lines are colinear.
+-- If the results are `Infinity` then the two lines are parallel and do not intersect.
 lineIntersection :: Scalar a => Line a -> Line a -> (Float,Float)
 lineIntersection
   Line { lineLoc = a, lineDir = ab }
-  Line { lineLoc = c, lineDir = cd } = (t1, -t2)
+  Line { lineLoc = c, lineDir = cd } = (t1,t2)
   where
-  ac = c - a
-  t1 = toFloat (cross ac cd) / toFloat (cross ab cd)
-  t2 = toFloat (cross ac ab) / toFloat (cross ab cd)
+  det = withVec \x1 y1 -> withVec \x2 y2 -> x1 * y2 - y1 * x2
+
+  -- a + l1 * ab = c + l2 * cd
+  -- l1 = l2 * cd + ac
+
+  ac  = c - a
+  dir = toFloat (det ab cd)
+
+  t1  = toFloat (det ac cd) / dir
+  t2  = toFloat (det ac ab) / dir
+
 {-# specialize lineIntersection :: Line Float -> Line Float -> (Float,Float) #-}
 {-# specialize lineIntersection :: Line Int -> Line Int -> (Float,Float) #-}
 
@@ -217,3 +223,15 @@ polyEdge i p = lineFromTo (polyVertex i p) (polyVertex j p)
   j' = i + 1
   j  = if j' == polyVertexNum p then 0 else j' 
 {-# inline polyEdge #-}
+
+polyEdges :: Scalar a => Polygon a -> [Line a]
+polyEdges p = map (`polyEdge` p) (take (polyVertexNum p) [ 0 .. ])
+
+polyIntersect :: Scalar a => Polygon a -> Polygon a -> ()
+polyIntersect = undefined
+  where
+  checkPoly p1 p2 =
+    undefined
+  checkEdge e p2 =
+    let n = normal e
+    in undefined
