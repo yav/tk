@@ -6,13 +6,21 @@ module GUI.Geometry (
   withVec',
   updVec, mapVec, zipVec,
   isUnitVec, len,
-  dot, normal,
+  dot, normal, (.*), (.+),
 
   -- * Shapes
-  Line(..),
+  
+  -- ** Lines
+  Line,
+  withLine, withLine',
+  lineStart, lineEnd, lineDir,
   lineFromTo,
   lineIntersection,
+
+  -- ** Rectangles
   Rect(..),
+
+  -- ** Polygons
   Polygon,
   listPolygon,
   funPolygon,
@@ -32,8 +40,8 @@ data instance Vec Float   = VecFloat !Float !Float
 
 -- | A line segment
 data Line a = Line {
-  lineLoc :: !(Vec a),  --  ^ Starting point of line segment
-  lineDir :: !(Vec a)   -- ^ Length and direction of line
+  lineFrom :: !(Vec a),  -- ^ Starting point of line segment
+  lineTo   :: !(Vec a)   -- ^ End point of the line
 } deriving (Show,Read,Eq,Ord)
 
 -- | A rectangle
@@ -68,6 +76,16 @@ instance Scalar a => Eq (Vec a) where
 instance Scalar a => Ord (Vec a) where
   compare = withVec \x1 y1 -> withVec \x2 y2 -> compare (x1,y1) (x2,y2)
 
+
+-- | Multiple by a scalar
+(.*) :: Scalar a => a -> Vec a -> Vec a
+x .* v = vec x x * v
+{-# inline (.*) #-}
+
+-- | Translate by a scalar
+(.+) :: Scalar a => a -> Vec a -> Vec a
+x .+ v = vec x x + v
+{-# inline (.+) #-}
 
 -- | A version of `withVec` with swapped arguments
 withVec' :: Scalar a => Vec a -> (a -> a -> b) -> b
@@ -157,15 +175,16 @@ instance Scalar Float where
 -- If the results are `NaN`, then the two lines are colinear.
 -- If the results are `Infinity` then the two lines are parallel and do not intersect.
 lineIntersection :: Scalar a => Line a -> Line a -> (Float,Float)
-lineIntersection
-  Line { lineLoc = a, lineDir = ab }
-  Line { lineLoc = c, lineDir = cd } = (t1,t2)
+lineIntersection l1 l2 = (t1,t2)
   where
   det = withVec \x1 y1 -> withVec \x2 y2 -> x1 * y2 - y1 * x2
 
   -- a + l1 * ab = c + l2 * cd
   -- l1 = l2 * cd + ac
-
+  a   = lineStart l1
+  ab  = lineDir l1
+  c   = lineStart l2
+  cd  = lineDir l2
   ac  = c - a
   dir = toFloat (det ab cd)
 
@@ -175,11 +194,32 @@ lineIntersection
 {-# specialize lineIntersection :: Line Float -> Line Float -> (Float,Float) #-}
 {-# specialize lineIntersection :: Line Int -> Line Int -> (Float,Float) #-}
 
+withLine' :: Scalar a => Line a -> (Vec a -> Vec a -> b) -> b
+withLine' l k = k (lineFrom l) (lineTo l)
+{-# inline withLine' #-}
+
+withLine :: Scalar a => (Vec a -> Vec a -> b) -> Line a -> b
+withLine = flip withLine'
+{-# inline withLine #-}
+
 -- | Create a line segment between two points
 lineFromTo :: Scalar a => Vec a -> Vec a -> Line a
-lineFromTo start end = Line { lineLoc = start, lineDir = end - start }
+lineFromTo start end = Line { lineFrom = start, lineTo = end }
 {-# inline lineFromTo #-}
 
+-- | The start of a line
+lineStart :: Scalar a => Line a -> Vec a
+lineStart = withLine const
+{-# inline lineStart #-}
+
+lineEnd :: Scalar a => Line a -> Vec a
+lineEnd = withLine \_ y -> y
+{-# inline lineEnd #-}
+
+-- | A vector from the start point of a line to the end.
+lineDir :: Scalar a => Line a -> Vec a
+lineDir = withLine (flip (-))
+{-# inline lineDir #-}
 
 -- | Create a polygon out of a list of vertices.
 listPolygon :: Scalar a => [Vec a] -> Polygon a

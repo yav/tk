@@ -7,6 +7,8 @@ import GUI
 import GUI.Event
 import GUI.Scene
 import GUI.Timer
+import GUI.Geometry
+import GUI.Color
 
 main :: IO ()
 main = gui App {
@@ -30,7 +32,7 @@ data S = S {
 initS :: Time -> S
 initS now =
   case parseBlock b of
-    Right a -> S { blockS = a, done = False, timers = timer now True 1000 upd noTimers, counter = 0, perCounter = 0 }
+    Right a -> S { blockS = a, done = False, timers = timer now True 100 upd noTimers, counter = 0, perCounter = 0 }
     Left err -> error err
   where
   upd s = s { perCounter = perCounter s + 1 }
@@ -42,6 +44,16 @@ initS now =
 
 drawS :: S -> Scene
 drawS b = Text (show (perCounter b, counter b)) :&: drawBlock (blockS b)
+          :&: Translate (vec 200 200)  (Rotate (45 * fromIntegral (perCounter b) / 10) pic1)
+  where
+  l1 = lineFromTo (vec (0 :: Float) 0) (vec 50 50)
+  l2 = lineFromTo (vec 50 0) (vec 0 50)
+  (t1,_t2) = lineIntersection l1 l2
+  pt = lineStart l1 + t1 .* lineDir l1
+  r = 5
+  obj c = Translate ((-1) .* vec r r) $ FillColor c (Circle r)
+  pic1 = obj blue :&: Translate pt (obj yellow) :&: OutlineColor red (line l1) :&: OutlineColor green (line l2)
+
 
 handleEvent :: SFEvent -> Time -> S -> S
 handleEvent ev now s@S { blockS = b } =

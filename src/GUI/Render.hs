@@ -103,6 +103,27 @@ renderLoop w txt sh tx trans rsr scn =
          SFML.drawText w obj (Just SFML.renderStates { SFML.transform = trans })
          pure rsr1
 
+    Line l -> SFML.drawPrimitives w (vertices (outlineColor sh) l) SFML.LineStrip
+                  (Just SFML.renderStates { SFML.transform = trans })
+              >> pure rsr
+      where
+      vertices c ml =
+        case ml of
+          LineColor d k -> vertices d k
+          LineTo p k -> toVertex p c : verticesNext p c k
+          LineToRel p k ->
+            toVertex (vec 0 0) c : toVertex p c : verticesNext p c k
+          LineEnd -> []
+
+      verticesNext p c ml =
+        case ml of
+          LineColor d k -> verticesNext p d k
+          LineEnd -> []
+          LineTo q k -> toVertex q c : verticesNext q c k
+          LineToRel q k -> toVertex ap c : verticesNext ap c k
+            where ap = p + q
+
+
     Rectangle width height ->
       do
         (obj, rsr1) <- getResource rsr
@@ -132,8 +153,18 @@ renderLoop w txt sh tx trans rsr scn =
             SFML.drawSprite w obj (Just SFML.renderStates { SFML.transform = trans })
             pure rsr1
 
-    Translate dx dy k -> renderLoop w txt sh tx (SFML.translation dx dy * trans) rsr k
-    Scale sx sy k     -> renderLoop w txt sh tx (SFML.scaling sx sy * trans) rsr k
-    ScaleWithCenter sx sy x y k -> renderLoop w txt sh tx (SFML.scalingWithCenter sx sy x y * trans) rsr k
-    Rotate r k -> renderLoop w txt sh tx (SFML.rotation r * trans) rsr k
-    RotateWithCenter r x y k -> renderLoop w txt sh tx (SFML.rotationWithCenter r x y * trans) rsr k
+    Translate dv k ->
+      withVec' dv \dx dy ->
+        renderLoop w txt sh tx (trans * SFML.translation dx dy) rsr k
+    
+    Scale sx sy k     -> renderLoop w txt sh tx (trans * SFML.scaling sx sy) rsr k
+
+    ScaleWithCenter c sx sy k ->
+      withVec' c \x y ->
+        renderLoop w txt sh tx (SFML.scalingWithCenter sx sy x y * trans) rsr k
+    
+    Rotate r k -> renderLoop w txt sh tx (trans * SFML.rotation r) rsr k
+    
+    RotateWithCenter c r k ->
+      withVec' c \x y ->
+        renderLoop w txt sh tx (trans * SFML.rotationWithCenter r x y) rsr k

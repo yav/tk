@@ -12,6 +12,7 @@ import Control.Monad(zipWithM)
 import Data.List(foldl')
 import GUI.Scene
 import Vec2D
+import GUI.Geometry
 import Transform qualified as T
 import Rule
 
@@ -39,7 +40,7 @@ transform t b = b { tr = t <> tr b }
 drawBlock :: Block -> Scene
 drawBlock b =
     foldr (:&:) Blank
-    [ Translate (cvt x) (cvt y) (drawRule sz a) | (Vec2D x y,a) <- positions b ]
+    [ Translate (vec (cvt x) (cvt y)) (drawRule sz a) | (Vec2D x y,a) <- positions b ]
   where
   sz = 32
   cvt x = sz * fromIntegral x  
