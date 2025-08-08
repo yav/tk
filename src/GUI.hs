@@ -32,7 +32,7 @@ data App s = App {
   appTitle :: String,
   -- ^ Application title.
 
-  appFrameRate :: Int,
+  appFrameRate :: Maybe Int,
   -- ^ Maximum number of update per second.
 
   appInit :: Time -> s,
@@ -59,7 +59,9 @@ gui app =
   withResource (SFML.createRenderWindow wmode  { SFML.windowWidth = 800, SFML.windowHeight = 600 } (appTitle app) [SFML.SFDefaultStyle] Nothing) \w ->
   withResource SFML.createClock \clock ->
     do
-      SFML.setFramerateLimit w (appFrameRate app)
+      case appFrameRate app of
+        Just n -> SFML.setFramerateLimit w n
+        Nothing -> pure ()
       fo <- BSU.unsafeUseAsCStringLen defaultFontData \(ptr,len) ->
               SFML.err (SFML.fontFromMemory (castPtr ptr) len)
       let ro = RO { roWin = w, roApp = app, roFont = fo, roClock = clock }

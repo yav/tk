@@ -13,7 +13,7 @@ import GUI.Color
 main :: IO ()
 main = gui App {
   appTitle = "TK",
-  appFrameRate = 60,
+  appFrameRate = Nothing, -- Just 60,
   appInit = initS,
   appUpdate = updateS,
   appEvent = handleEvent,
@@ -32,7 +32,7 @@ data S = S {
 initS :: Time -> S
 initS now =
   case parseBlock b of
-    Right a -> S { blockS = a, done = False, timers = timer now True 100 upd noTimers, counter = 0, perCounter = 0 }
+    Right a -> S { blockS = a, done = False, timers = timer now True 10 upd noTimers, counter = 0, perCounter = 0 }
     Left err -> error err
   where
   upd s = s { perCounter = perCounter s + 1 }
