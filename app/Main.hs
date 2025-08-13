@@ -48,7 +48,7 @@ drawS b = Text (show (perCounter b, counter b)) :&: drawBlock (blockS b)
   where
   l1 = lineFromTo (vec (0 :: Float) 0) (vec 50 50)
   l2 = lineFromTo (vec 50 0) (vec 0 50)
-  (t1,_t2) = lineIntersection l1 l2
+  Just t1 = lineIntersection l1 l2
   pt = lineStart l1 + t1 .* lineDir l1
   r = 5
   obj c = Translate ((-1) .* vec r r) $ FillColor c (Circle r)

@@ -1,4 +1,14 @@
--- 2D Vectors and Rectangles
+{- | 2D Points and Shapes
+
+This module assumes the following geometry:
+  * the x-axis is positive to the right
+  * the y-axis is positive downward
+
+Angles are positive when going from the x-axis toward the y-axis.
+
+* "clockwise" rotation is from the x-axis toward the y-axis.
+* "anti-clockwise" rotation is from the y-axis to the x-axis.
+-}
 module GUI.Geometry (
   -- * Vectors
   Vec,
@@ -6,7 +16,8 @@ module GUI.Geometry (
   withVec',
   updVec, mapVec, zipVec,
   isUnitVec, len,
-  dot, normal, (.*), (.+),
+  dot, cross, normal,
+  (.*), (.+),
 
   -- * Shapes
   
@@ -123,15 +134,24 @@ len :: Scalar a => Vec a -> Float
 len = sqrt . toFloat . len2
 {-# inline len #-}
 
--- | Dot product
+{- | Dot product.  `dot x y == len x * len y * cos a`, where
+`a` is the angle from the first ovector to the second.
+
+May be used to project `x` onto `y`. -}
 dot :: Scalar a => Vec a -> Vec a -> a
 dot x y = withVec (+) (x * y)
 {-# inline dot #-}
 
+{- | The cross product. `cross x y = len x * len y * sin a`, where
+`a` is the angle from the first vector to the second.
 
+Area of the parallelogram formed by the two vectors.
+The result is positive when `y` is "clockwise" relative to `x`. -}
+cross :: Scalar a => Vec a -> Vec a -> a
+cross = withVec \x1 y1 -> withVec \x2 y2 -> x1 * y2 - y1 * x2
+{-# inline cross #-}
 
--- | Rotate a vector 90 degrees counter-clockwise
--- (i.e., from `x` toward `y` axis)
+-- | Rotate a vector 90 degrees "clockwise" (i.e., x-axis toward y-axis)
 normal :: Scalar a => Vec a -> Vec a
 normal = withVec \x y -> vec (-y) x
 {-# inline normal #-}
@@ -169,16 +189,18 @@ instance Scalar Float where
 
 
 -- | Compute the the interesection of two line segmentgs.
--- The results point to the intersection as an interpolant along each line:
+-- The results point to the intersection as an interpolant along the first line:
 -- 0 is at the start of the segment, 1 is at the end.
--- Negative or larger numbers indicate that the intersection is outside the segments.
--- If the results are `NaN`, then the two lines are colinear.
--- If the results are `Infinity` then the two lines are parallel and do not intersect.
-lineIntersection :: Scalar a => Line a -> Line a -> (Float,Float)
-lineIntersection l1 l2 = (t1,t2)
-  where
-  det = withVec \x1 y1 -> withVec \x2 y2 -> x1 * y2 - y1 * x2
+-- Returns `Nothing` if the line segments do not intersect.
+-- If the line segments lie on the same line, then there maybe multiple
+-- points of intesection.  In that case we return the largest interpolant.
 
+lineIntersection :: Scalar a => Line a -> Line a -> Maybe Float
+lineIntersection l1 l2
+  | bot == 0          = if top == 0 then Just ct1 else Nothing
+  | t1 < 0 || t1 > 1  = Nothing
+  | otherwise         = Just t1
+  where
   -- a + l1 * ab = c + l2 * cd
   -- l1 = l2 * cd + ac
   a   = lineStart l1
@@ -186,18 +208,26 @@ lineIntersection l1 l2 = (t1,t2)
   c   = lineStart l2
   cd  = lineDir l2
   ac  = c - a
-  dir = toFloat (det ab cd)
+  bot = toFloat (cross ab cd)
+  top = toFloat (cross ac cd)
+  t1  =  top / bot
 
-  t1  = toFloat (det ac cd) / dir
-  t2  = toFloat (det ac ab) / dir
+  -- colinear
+  cvt v     = toFloat (dot v ab) / ab2
+  ab2       = toFloat (dot ab ab)
+  l2_start  = cvt ac
+  l2_end    = l2_start + cvt cd
+  ct1       = max l2_start l2_end
 
-{-# specialize lineIntersection :: Line Float -> Line Float -> (Float,Float) #-}
-{-# specialize lineIntersection :: Line Int -> Line Int -> (Float,Float) #-}
+{-# specialize lineIntersection :: Line Float -> Line Float -> Maybe Float #-}
+{-# specialize lineIntersection :: Line Int -> Line Int -> Maybe Float #-}
 
+-- | Do something with the start and end points of a line segment. -}
 withLine' :: Scalar a => Line a -> (Vec a -> Vec a -> b) -> b
 withLine' l k = k (lineFrom l) (lineTo l)
 {-# inline withLine' #-}
 
+-- | Do something with the start and end points of a line segment. -}
 withLine :: Scalar a => (Vec a -> Vec a -> b) -> Line a -> b
 withLine = flip withLine'
 {-# inline withLine #-}
@@ -207,11 +237,12 @@ lineFromTo :: Scalar a => Vec a -> Vec a -> Line a
 lineFromTo start end = Line { lineFrom = start, lineTo = end }
 {-# inline lineFromTo #-}
 
--- | The start of a line
+-- | The start of a line.
 lineStart :: Scalar a => Line a -> Vec a
 lineStart = withLine const
 {-# inline lineStart #-}
 
+-- | The end point of a line.
 lineEnd :: Scalar a => Line a -> Vec a
 lineEnd = withLine \_ y -> y
 {-# inline lineEnd #-}
@@ -222,12 +253,16 @@ lineDir = withLine (flip (-))
 {-# inline lineDir #-}
 
 -- | Create a polygon out of a list of vertices.
+-- The geometric operations (intersection, containment, etc.) assume that the
+-- vertices are listed "clockwise" around the polygon.
 listPolygon :: Scalar a => [Vec a] -> Polygon a
 listPolygon xs = Polygon (V.fromList [ p | v <- xs, p <- withVec' v \x y -> [x,y] ])
 {-# inline listPolygon #-}
 
 -- | Create a polygon with the given number of vertices,
 -- using a function to compute the vertices.
+-- The geometric operations (intersection, containment, etc.) assume that the
+-- vertices are listed "clockwise" around the polygon.
 funPolygon :: Scalar a => Int -> (Int -> Vec a) -> Polygon a
 funPolygon n v = Polygon (V.create
   do
@@ -264,14 +299,10 @@ polyEdge i p = lineFromTo (polyVertex i p) (polyVertex j p)
   j  = if j' == polyVertexNum p then 0 else j' 
 {-# inline polyEdge #-}
 
+polyVertices :: Scalar a => Polygon a -> [Vec a]
+polyVertices p = [ polyVertex i p | i <- [ 0 .. polyVertexNum p - 1 ] ] 
+
 polyEdges :: Scalar a => Polygon a -> [Line a]
 polyEdges p = map (`polyEdge` p) (take (polyVertexNum p) [ 0 .. ])
 
-polyIntersect :: Scalar a => Polygon a -> Polygon a -> ()
-polyIntersect = undefined
-  where
-  checkPoly p1 p2 =
-    undefined
-  checkEdge e p2 =
-    let n = normal e
-    in undefined
+
