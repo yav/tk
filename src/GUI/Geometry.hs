@@ -1,8 +1,9 @@
 {- | 2D Points and Shapes
 
 This module assumes the following geometry:
-  * the x-axis is positive to the right
-  * the y-axis is positive downward
+
+* the x-axis is positive to the right
+* the y-axis is positive downward
 
 Angles are positive when going from the x-axis toward the y-axis.
 
@@ -109,7 +110,7 @@ instance Scalar a => Ord (Vec a) where
   compare = withVec \x1 y1 -> withVec \x2 y2 -> compare (x1,y1) (x2,y2)
 
 
--- | Multiple by a scalar
+-- | Multiply by a scalar
 (.*) :: Scalar a => a -> Vec a -> Vec a
 x .* v = vec x x * v
 {-# inline (.*) #-}
@@ -150,7 +151,7 @@ isUnitVec = (1 ==) . len2
 {-# inline isUnitVec #-}
 
 
--- | The length of a fector
+-- | The length of a vector
 len :: Scalar a => Vec a -> Float
 len = sqrt . toFloat . len2
 {-# inline len #-}
@@ -274,14 +275,14 @@ lineDir = withLine (flip (-))
 {-# inline lineDir #-}
 
 
--- | Is the given point inside the given circle
+-- | Is the given point inside the given circle.
 circleContains :: Scalar a => Vec a -> Circle a -> Bool
 circleContains pt Circle { circleRadius = r, circleCenter = c } =
-  len2 (pt - c) < r * r
+  len2 (pt - c) <= r * r
 
 -- | Do these circles overlap?
 circleIntersect :: Scalar a => Circle a -> Circle a -> Bool
-circleIntersect circ1 circ2 = len2 v < d * d
+circleIntersect circ1 circ2 = len2 v <= d * d
   where
   v = circleCenter circ1 - circleCenter circ2
   d = circleRadius circ1 + circleRadius circ2
@@ -335,21 +336,25 @@ polyEdge i p = lineFromTo (polyVertex i p) (polyVertex j p)
   j  = if j' == polyVertexNum p then 0 else j' 
 {-# inline polyEdge #-}
 
+-- | Get the vertices of the polygon.
 polyVertices :: Scalar a => Polygon a -> [Vec a]
 polyVertices p = [ polyVertex i p | i <- [ 0 .. polyVertexNum p - 1 ] ] 
 {-# inline polyVertices #-}
 
+-- | Get the edges of the polygon.
 polyEdges :: Scalar a => Polygon a -> [Line a]
 polyEdges p = map (`polyEdge` p) (take (polyVertexNum p) [ 0 .. ])
 {-# inline polyEdges #-}
 
+-- | Does the convex polygon contain the given point.
 polyContains :: Scalar a => Vec a -> Polygon a -> Bool
 polyContains pt = all inside . polyEdges
   where
-  inside l = cross (lineDir l) (pt - lineStart l) > 0
+  inside l = cross (lineDir l) (pt - lineStart l) >= 0
 {-# SPECIALISE polyContains :: Vec Int -> Polygon Int -> Bool #-}
 {-# SPECIALISE polyContains :: Vec Float -> Polygon Float -> Bool #-}
 
+-- | Do the given convex polygons intersect.
 polyIntersect :: Scalar a => Polygon a -> Polygon a -> Bool
 polyIntersect p1 p2 = sepPoly p1 p2 || sepPoly p2 p1
   where
