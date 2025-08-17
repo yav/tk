@@ -31,17 +31,28 @@ module GUI.Geometry (
   -- ** Rectangles
   Rect(..),
 
+  -- * Circles
+  Circle(..),
+  circleContains,
+  circleIntersect,
+
   -- ** Polygons
   Polygon,
-  listPolygon,
-  funPolygon,
+  polyFromList,
+  polyFromFun,
   polyVertexNum,
   polyVertex,
   polyEdge,
+  polyVertices,
+  polyEdges,
+  polyContains,
+  polyIntersect
+
 ) where
 
 import Data.Vector.Unboxed qualified as V
 import Data.Vector.Unboxed.Mutable qualified as MV
+
 
 -- | 2D Vectors
 data family Vec scalar
@@ -59,9 +70,19 @@ data Line a = Line {
 data Rect a               = Rect { rectLoc :: !(Vec a), rectDim :: !(Vec a) }
   deriving (Show,Read,Eq,Ord)
 
+-- A circle
+data Circle a             = Circle { circleCenter :: !(Vec a), circleRadius :: a }
+  deriving (Show,Read,Eq,Ord)
+
 -- | A polygon
 newtype Polygon a         = Polygon (V.Vector a)
+  deriving (Eq,Ord)
 
+instance (Scalar a, Show a) => Show (Polygon a) where
+  showsPrec p = showsPrec p . polyVertices
+
+instance (Scalar a, Read a) => Read (Polygon a) where
+  readsPrec p txt = [ (polyFromList xs, ys) | (xs,ys) <- readsPrec p txt ]
 
 -- | Types that may be stored in a `Vec`.
 class (Eq a, Ord a, Show a, Read a, Num a, V.Unbox a) => Scalar a where
@@ -252,19 +273,34 @@ lineDir :: Scalar a => Line a -> Vec a
 lineDir = withLine (flip (-))
 {-# inline lineDir #-}
 
+
+-- | Is the given point inside the given circle
+circleContains :: Scalar a => Vec a -> Circle a -> Bool
+circleContains pt Circle { circleRadius = r, circleCenter = c } =
+  len2 (pt - c) < r * r
+
+-- | Do these circles overlap?
+circleIntersect :: Scalar a => Circle a -> Circle a -> Bool
+circleIntersect circ1 circ2 = len2 v < d * d
+  where
+  v = circleCenter circ1 - circleCenter circ2
+  d = circleRadius circ1 + circleRadius circ2
+
+
+
 -- | Create a polygon out of a list of vertices.
 -- The geometric operations (intersection, containment, etc.) assume that the
 -- vertices are listed "clockwise" around the polygon.
-listPolygon :: Scalar a => [Vec a] -> Polygon a
-listPolygon xs = Polygon (V.fromList [ p | v <- xs, p <- withVec' v \x y -> [x,y] ])
-{-# inline listPolygon #-}
+polyFromList :: Scalar a => [Vec a] -> Polygon a
+polyFromList xs = Polygon (V.fromList [ p | v <- xs, p <- withVec' v \x y -> [x,y] ])
+{-# inline polyFromList #-}
 
 -- | Create a polygon with the given number of vertices,
 -- using a function to compute the vertices.
 -- The geometric operations (intersection, containment, etc.) assume that the
 -- vertices are listed "clockwise" around the polygon.
-funPolygon :: Scalar a => Int -> (Int -> Vec a) -> Polygon a
-funPolygon n v = Polygon (V.create
+polyFromFun :: Scalar a => Int -> (Int -> Vec a) -> Polygon a
+polyFromFun n v = Polygon (V.create
   do
     vs <- MV.new n
     let set i =
@@ -273,7 +309,7 @@ funPolygon n v = Polygon (V.create
     mapM_ set (take n [0..])
     pure vs
   )
-{-# inline funPolygon #-}
+{-# inline polyFromFun #-}
 
 -- | How many vertices are in this polygon.
 polyVertexNum :: Scalar a => Polygon a -> Int
@@ -301,8 +337,29 @@ polyEdge i p = lineFromTo (polyVertex i p) (polyVertex j p)
 
 polyVertices :: Scalar a => Polygon a -> [Vec a]
 polyVertices p = [ polyVertex i p | i <- [ 0 .. polyVertexNum p - 1 ] ] 
+{-# inline polyVertices #-}
 
 polyEdges :: Scalar a => Polygon a -> [Line a]
 polyEdges p = map (`polyEdge` p) (take (polyVertexNum p) [ 0 .. ])
+{-# inline polyEdges #-}
 
+polyContains :: Scalar a => Vec a -> Polygon a -> Bool
+polyContains pt = all inside . polyEdges
+  where
+  inside l = cross (lineDir l) (pt - lineStart l) > 0
+{-# SPECIALISE polyContains :: Vec Int -> Polygon Int -> Bool #-}
+{-# SPECIALISE polyContains :: Vec Float -> Polygon Float -> Bool #-}
 
+polyIntersect :: Scalar a => Polygon a -> Polygon a -> Bool
+polyIntersect p1 p2 = sepPoly p1 p2 || sepPoly p2 p1
+  where
+  sepPoly p q = any (sepAlong p q) (polyEdges p)
+  sepAlong p q e =
+    let proj = dot (normal (lineDir e))
+        rng ps =
+          case map proj ps of
+            [] -> error "0 vertex polygon"
+            pr : more -> foldr (\x (l,u) -> if x < l then (x,u) else if x > u then (l,x) else (l,u)) (pr,pr) more
+        (l1,u1) = rng (polyVertices p)
+        (l2,u2) = rng (polyVertices q)
+    in u1 < l2 || u2 < l1

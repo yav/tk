@@ -16,7 +16,7 @@ isTrivial Rule { rulePattern, ruleAction } =
 
 drawRule :: Float -> Rule -> Scene
 drawRule sz _ =
-  OutlineColor white $ Outline 1 $ Rectangle sz sz
+  SetOutlineColor white $ SetOutline 1 $ DrawRectangle sz sz
 
 parseRule :: String -> Maybe Rule
 parseRule s =

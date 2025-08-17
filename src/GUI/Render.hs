@@ -82,18 +82,18 @@ renderLoop w txt sh tx trans rsr scn =
       do rsr1 <- renderLoop w txt sh tx trans rsr x
          renderLoop w txt sh tx trans rsr1 y
 
-    Font fo k -> renderLoop w txt { txtFont = fo } sh tx trans rsr k
-    FontSize n k -> renderLoop w txt { txtSize = n } sh tx trans rsr k
-    FontStyle s k -> renderLoop w txt { txtStyle = s : txtStyle txt } sh tx trans rsr k
-    FontColor c k -> renderLoop w txt { txtColor = c } sh tx trans rsr k
+    SetFont fo k -> renderLoop w txt { txtFont = fo } sh tx trans rsr k
+    SetFontSize n k -> renderLoop w txt { txtSize = n } sh tx trans rsr k
+    SetFontStyle s k -> renderLoop w txt { txtStyle = s : txtStyle txt } sh tx trans rsr k
+    SetFontColor c k -> renderLoop w txt { txtColor = c } sh tx trans rsr k
 
-    FillColor c k -> renderLoop w txt sh { fillColor = c } tx trans rsr k
-    OutlineColor c k -> renderLoop w txt sh { outlineColor = c } tx trans rsr k
-    Outline n k -> renderLoop w txt sh { outlineThikness = n } tx trans rsr k
+    SetFillColor c k -> renderLoop w txt sh { fillColor = c } tx trans rsr k
+    SetOutlineColor c k -> renderLoop w txt sh { outlineColor = c } tx trans rsr k
+    SetOutline n k -> renderLoop w txt sh { outlineThikness = n } tx trans rsr k
 
-    Texture t r k -> renderLoop w txt sh tx { texture = Just t, rectangle = r } trans rsr k 
+    SetTexture t r k -> renderLoop w txt sh tx { texture = Just t, rectangle = r } trans rsr k 
 
-    Text str ->
+    DrawText str ->
       do (obj, rsr1) <- getResource rsr
          SFML.setTextStringU obj str
          SFML.setTextFont obj (txtFont txt)
@@ -103,7 +103,7 @@ renderLoop w txt sh tx trans rsr scn =
          SFML.drawText w obj (Just SFML.renderStates { SFML.transform = trans })
          pure rsr1
 
-    Line l -> SFML.drawPrimitives w (vertices (outlineColor sh) l) SFML.LineStrip
+    DrawLine l -> SFML.drawPrimitives w (vertices (outlineColor sh) l) SFML.LineStrip
                   (Just SFML.renderStates { SFML.transform = trans })
               >> pure rsr
       where
@@ -124,7 +124,7 @@ renderLoop w txt sh tx trans rsr scn =
             where ap = p + q
 
 
-    Rectangle width height ->
+    DrawRectangle width height ->
       do
         (obj, rsr1) <- getResource rsr
         SFML.setSize obj (SFML.Vec2f width height)
@@ -133,7 +133,7 @@ renderLoop w txt sh tx trans rsr scn =
         SFML.drawRectangle w obj (Just SFML.renderStates { SFML.transform = trans })
         pure rsr1
 
-    Circle radius ->
+    DrawCircle radius ->
       do
         (obj, rsr1) <- getResource rsr
         SFML.setRadius obj radius
@@ -142,7 +142,7 @@ renderLoop w txt sh tx trans rsr scn =
         SFML.drawCircle w obj (Just SFML.renderStates { SFML.transform = trans })
         pure rsr1
 
-    Sprite ->
+    DrawSprite ->
       case texture tx of
         Nothing -> pure rsr
         Just {} ->

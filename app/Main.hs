@@ -43,7 +43,7 @@ initS now =
     ]
 
 drawS :: S -> Scene
-drawS b = Text (show (perCounter b, counter b)) :&: drawBlock (blockS b)
+drawS b = DrawText (show (perCounter b, counter b)) :&: drawBlock (blockS b)
           :&: Translate (vec 200 200)  (Rotate (45 * fromIntegral (perCounter b) / 10) pic1)
   where
   l1 = lineFromTo (vec (0 :: Float) 0) (vec 50 50)
@@ -51,8 +51,8 @@ drawS b = Text (show (perCounter b, counter b)) :&: drawBlock (blockS b)
   Just t1 = lineIntersection l1 l2
   pt = lineStart l1 + t1 .* lineDir l1
   r = 5
-  obj c = Translate ((-1) .* vec r r) $ FillColor c (Circle r)
-  pic1 = obj blue :&: Translate pt (obj yellow) :&: OutlineColor red (line l1) :&: OutlineColor green (line l2)
+  obj c = Translate ((-1) .* vec r r) $ SetFillColor c (DrawCircle r)
+  pic1 = obj blue :&: Translate pt (obj yellow) :&: SetOutlineColor red (drawLine l1) :&: SetOutlineColor green (drawLine l2)
 
 
 handleEvent :: SFEvent -> Time -> S -> S
