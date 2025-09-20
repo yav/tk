@@ -67,16 +67,20 @@ data Line a = Line {
   lineTo   :: !(Vec a)   -- ^ End point of the line
 } deriving (Show,Read,Eq,Ord)
 
--- | A rectangle
-data Rect a               = Rect { rectLoc :: !(Vec a), rectDim :: !(Vec a) }
-  deriving (Show,Read,Eq,Ord)
+-- | An axis-aligned rectangle
+data Rect a = Rect {
+  rectLoc :: !(Vec a),    -- ^ Location of top-left corrner
+  rectDim :: !(Vec a)     -- ^ Dimensions (i.e., vector towards bottom right corrner)
+} deriving (Show,Read,Eq,Ord)
 
 -- A circle
-data Circle a             = Circle { circleCenter :: !(Vec a), circleRadius :: a }
-  deriving (Show,Read,Eq,Ord)
+data Circle a = Circle {
+  circleCenter :: !(Vec a),
+  circleRadius :: a
+} deriving (Show,Read,Eq,Ord)
 
 -- | A polygon
-newtype Polygon a         = Polygon (V.Vector a)
+newtype Polygon a = Polygon (V.Vector a)
   deriving (Eq,Ord)
 
 instance (Scalar a, Show a) => Show (Polygon a) where
@@ -150,16 +154,18 @@ isUnitVec :: Scalar a => Vec a -> Bool
 isUnitVec = (1 ==) . len2
 {-# inline isUnitVec #-}
 
-
 -- | The length of a vector
 len :: Scalar a => Vec a -> Float
 len = sqrt . toFloat . len2
 {-# inline len #-}
 
 {- | Dot product.  `dot x y == len x * len y * cos a`, where
-`a` is the angle from the first ovector to the second.
+`a` is the angle between the vectors.
 
-May be used to project `x` onto `y`. -}
+May be used to project the one vector onto the other
+by dividing the dot product by the length of vector we are
+projecting onto.
+-}
 dot :: Scalar a => Vec a -> Vec a -> a
 dot x y = withVec (+) (x * y)
 {-# inline dot #-}
